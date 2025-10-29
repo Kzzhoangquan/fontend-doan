@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
 import KeyboardShortcuts from '@/components/ui/KeyboardShortcuts';
+import { PersistAuth } from '@/store/middleware/persistAuth';
 
 export default function DashboardLayout({
   children,
@@ -75,6 +76,7 @@ export default function DashboardLayout({
         {/* Keyboard Shortcuts Helper */}
         <KeyboardShortcuts />
       </main>
+      <PersistAuth />
     </div>
   );
 }
