@@ -1,0 +1,46 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "import": "Import",
+    "loading": "Loading...",
+    "noData": "No data available",
+    "confirm": "Confirm",
+    "success": "Success",
+    "error": "Error"
+  },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "email": "Email",
+    "password": "Password",
+    "rememberMe": "Remember me",
+    "forgotPassword": "Forgot password?",
+    "loginWithFace": "Login with face recognition"
+  },
+  "dashboard": {
+    "welcome": "Welcome",
+    "totalEmployees": "Total Employees",
+    "activeProjects": "Active Projects",
+    "monthlySalary": "Monthly Salary",
+    "performance": "Performance",
+    "recentActivity": "Recent Activity",
+    "quickActions": "Quick Actions"
+  },
+  "menu": {
+    "home": "Home",
+    "hr": "Human Resources",
+    "employees": "Employees",
+    "departments": "Departments",
+    "assets": "Assets",
+    "projects": "Project Management",
+    "accounting": "Accounting",
+    "settings": "Settings"
+  }
+}
