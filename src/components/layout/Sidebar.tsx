@@ -20,7 +20,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
   const toggleExpand = (label: string) => {
-    if (isCollapsed) return; // Không expand khi collapsed
+    if (isCollapsed) return;
     setExpandedItems(prev =>
       prev.includes(label)
         ? prev.filter(item => item !== label)
@@ -54,14 +54,27 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
           >
             <div className={`flex items-center ${isCollapsed ? '' : 'gap-3'}`}>
               <item.icon className="w-5 h-5 shrink-0" />
-              {!isCollapsed && <span className="font-medium">{item.label}</span>}
+              <span 
+                className={`font-medium whitespace-nowrap overflow-hidden transition-all duration-300 ${
+                  isCollapsed 
+                    ? 'opacity-0 w-0' 
+                    : 'opacity-100 w-auto delay-100'
+                }`}
+                style={{ minWidth: isCollapsed ? '0' : '120px' }}
+              >
+                {item.label}
+              </span>
             </div>
             {!isCollapsed && (
-              isExpanded ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )
+              <div className={`transition-all duration-300 ${
+                isCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto delay-100'
+              }`}>
+                {isExpanded ? (
+                  <ChevronDown className="w-4 h-4" />
+                ) : (
+                  <ChevronRight className="w-4 h-4" />
+                )}
+              </div>
             )}
           </button>
         ) : (
@@ -75,13 +88,23 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
             } ${isCollapsed ? 'justify-center' : 'gap-3'}`}
             style={{ paddingLeft: isCollapsed ? '16px' : `${depth * 12 + 16}px` }}
             title={isCollapsed ? item.label : ''}
+            prefetch={true}
           >
             <item.icon className="w-5 h-5 shrink-0" />
-            {!isCollapsed && <span className="font-medium">{item.label}</span>}
+            <span 
+              className={`font-medium whitespace-nowrap overflow-hidden transition-all duration-300 ${
+                isCollapsed 
+                  ? 'opacity-0 w-0' 
+                  : 'opacity-100 w-auto delay-100'
+              }`}
+              style={{ minWidth: isCollapsed ? '0' : '120px' }}
+            >
+              {item.label}
+            </span>
           </Link>
         )}
 
-        {/* Children - chỉ hiện khi không collapsed */}
+        {/* Children */}
         {hasChildren && isExpanded && !isCollapsed && (
           <div className="mt-1 space-y-1">
             {item.children?.map(child => renderMenuItem(child, depth + 1))}
@@ -103,13 +126,13 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-16 left-0 bottom-0 bg-white border-r border-gray-200 z-40 transform transition-all duration-300 ${
+        className={`fixed top-16 left-0 bottom-0 bg-white border-r border-gray-200 z-40 transform transition-all duration-300 ease-in-out ${
           isCollapsed ? 'w-20' : 'w-64'
         } ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        {/* Toggle Button - Desktop only */}
+        {/* Toggle Button */}
         <button
           onClick={onToggleCollapse}
           className="hidden lg:flex absolute -right-3 top-6 w-6 h-6 bg-white border border-gray-200 rounded-full items-center justify-center hover:bg-gray-50 transition-colors shadow-sm z-50"
@@ -126,14 +149,18 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
         </nav>
 
         {/* Footer */}
-        {!isCollapsed && (
-          <div className="absolute bottom-0 left-0 right-0 p-4 bg-linear-to-t from-gray-50 to-transparent">
-            <div className="text-center text-xs text-gray-500">
-              <p>© 2024 HRM System</p>
-              <p className="mt-1">Version 1.0.0</p>
-            </div>
+        <div 
+          className={`absolute bottom-0 left-0 right-0 p-4 bg-linear-to-t from-gray-50 to-transparent pointer-events-none transition-opacity duration-300 ${
+            isCollapsed 
+              ? 'opacity-0' 
+              : 'opacity-100 delay-100'
+          }`}
+        >
+          <div className="text-center text-xs text-gray-500">
+            <p>© 2024 HRM System</p>
+            <p className="mt-1">Version 1.0.0</p>
           </div>
-        )}
+        </div>
       </aside>
     </>
   );

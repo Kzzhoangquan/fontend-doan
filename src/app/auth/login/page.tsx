@@ -64,7 +64,7 @@ export default function LoginPage() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-(--color-primary-blue) focus:border-transparent outline-none transition-all"
+            className="w-full px-4 py-3 text-gray-900 rounded-lg border border-gray-300 focus:ring-2 focus:ring-(--color-primary-blue) focus:border-transparent outline-none transition-all"
             placeholder="email@example.com"
             required
           />
@@ -78,7 +78,7 @@ export default function LoginPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-(--color-primary-blue) focus:border-transparent outline-none transition-all"
+            className="w-full px-4 py-3 text-gray-900 rounded-lg border border-gray-300 focus:ring-2 focus:ring-(--color-primary-blue) focus:border-transparent outline-none transition-all"
             placeholder="••••••••"
             required
           />
@@ -105,17 +105,6 @@ export default function LoginPage() {
           {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
         </button>
       </form>
-
-      {/* Face Recognition Option */}
-      <div className="mt-6 pt-6 border-t border-gray-200">
-        <button className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-dashed border-gray-300 text-gray-600 hover:border-(--color-primary-blue) hover:text-(--color-primary-blue) transition-all">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-          </svg>
-          Đăng nhập bằng nhận diện khuôn mặt
-        </button>
-      </div>
     </div>
   );
 }

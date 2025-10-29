@@ -156,11 +156,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-linear-to-br from-(--color-primary-blue) to-purple-600 rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-lg">HR</span>
+              <span className="text-white font-bold text-lg">DĐQ</span>
             </div>
             <div className="hidden md:block">
-              <h1 className="text-lg font-bold text-gray-900">HRM System</h1>
-              <p className="text-xs text-gray-500">Quản lý Nhân sự & Dự án</p>
+              <h1 className="text-lg font-bold text-gray-900">ERP System</h1>
+              <p className="text-xs text-gray-500">Hệ thống Quản lý nội bộ doanh nghiệp</p>
             </div>
           </div>
         </div>

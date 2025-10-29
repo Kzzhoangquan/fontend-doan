@@ -6,7 +6,7 @@ import { Providers } from './providers';
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata: Metadata = {
-  title: 'Hệ thống Quản lý Nhân sự & Dự án',
+  title: 'Hệ thống Quản lý nội bộ doanh nghiệp',
   description: 'Enterprise Resource Planning System',
 };
 
