@@ -178,7 +178,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
               onKeyDown={handleKeyDown}
               onFocus={() => searchQuery && setShowSearchResults(true)}
               placeholder="Tìm kiếm nhanh (nhấn / để focus)..."
-              className="w-full pl-10 pr-10 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-(--color-primary-blue) focus:bg-white transition-all"
+              className="w-full pl-10 pr-10 py-2 text-gray-900 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-(--color-primary-blue) focus:bg-white transition-all"
             />
 
             {/* Search Results Dropdown */}

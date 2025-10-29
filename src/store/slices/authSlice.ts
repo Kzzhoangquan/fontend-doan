@@ -1,7 +1,7 @@
 // src/store/slices/authSlice.ts
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { UserRole } from '@/lib/constants/roles';
-import { saveState, removeState } from '@/lib/utils/storage'; // ← tạo hàm này
+import { saveState, removeState } from '@/lib/utils/storage';
 
 interface AuthState {
   isAuthenticated: boolean;

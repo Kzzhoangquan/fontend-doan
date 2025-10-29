@@ -71,12 +71,12 @@ body {
 
 /* Smooth sidebar transitions */
 .sidebar-transition {
-  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Prevent text wrapping during animation */
 .sidebar-text {
-  transition: opacity 1s ease-in-out, width 0.2s ease-in-out;
+  transition: opacity 0.2s ease-in-out, width 0.2s ease-in-out;
 }
 
 /* Custom scrollbar for sidebar */
