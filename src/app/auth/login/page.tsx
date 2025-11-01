@@ -28,7 +28,7 @@ export default function LoginPage() {
         id: '1',
         email,
         name: 'Nguyễn Văn A',
-        role: 'EMPLOYEE' as any,
+        role: 'HR_MANAGER' as any, 
         avatar: 'https://ui-avatars.com/api/?name=Nguyen+Van+A',
       };
 
