@@ -43,7 +43,7 @@ import { Card } from './card';
 import { ColumnContext, type ColumnContextProps, useColumnContext } from './column-context';
 
 const columnStyles = xcss({
-	width: '250px',
+	width: '300px',
 	backgroundColor: 'elevation.surface.sunken',
 	borderRadius: 'radius.xlarge',
 	// eslint-disable-next-line @atlaskit/ui-styling-standard/no-unsafe-values, @atlaskit/ui-styling-standard/no-imported-style-values
@@ -262,8 +262,8 @@ export const Column = memo(function Column({ column }: { column: ColumnType }) {
 		stableItems.current = column.items;
 	}, [column.items]);
 
-	const getCardIndex = useCallback((userId: string) => {
-		return stableItems.current.findIndex((item) => item.userId === userId);
+	const getCardIndex = useCallback((issueId: string) => {
+		return stableItems.current.findIndex((item) => item.issueId === issueId);
 	}, []);
 
 	const getNumCards = useCallback(() => {
@@ -303,7 +303,7 @@ export const Column = memo(function Column({ column }: { column: ColumnType }) {
 						<Box xcss={scrollContainerStyles} ref={scrollableRef}>
 							<Stack xcss={cardListStyles} space="space.100">
 								{column.items.map((item) => (
-									<Card item={item} key={item.userId} />
+									<Card item={item} key={item.issueId} />
 								))}
 							</Stack>
 						</Box>
@@ -341,7 +341,9 @@ function ActionMenu() {
 	return (
 		<DropdownMenu
 			trigger={DropdownMenuTrigger}
-			shouldRenderToParent={fg('should-render-to-parent-should-be-true-design-syst')}
+			// shouldRenderToParent={fg('should-render-to-parent-should-be-true-design-syst')}
+			shouldRenderToParent={true}
+			placement="bottom-end"
 		>
 			<ActionMenuItems />
 		</DropdownMenu>

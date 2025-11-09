@@ -13,11 +13,12 @@ import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine';
 import { monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { reorder } from '@atlaskit/pragmatic-drag-and-drop/reorder';
 
-import { type ColumnMap, type ColumnType, getBasicData, type Person } from './pragmatic-drag-and-drop/documentation/examples/data/people';
+import { type ColumnMap, type ColumnType, type Issue } from './pragmatic-drag-and-drop/documentation/examples/data/people';
 import Board from './pragmatic-drag-and-drop/documentation/examples/pieces/board/board';
 import { BoardContext, type BoardContextValue } from './pragmatic-drag-and-drop/documentation/examples/pieces/board/board-context';
 import { Column } from './pragmatic-drag-and-drop/documentation/examples/pieces/board/column';
 import { createRegistry } from './pragmatic-drag-and-drop/documentation/examples/pieces/board/registry';
+import { useRouter, usePathname } from 'next/navigation';
 
 type Outcome =
 	| {
@@ -53,13 +54,50 @@ type BoardState = {
 };
 
 export default function BoardExample() {
-	const [data, setData] = useState<BoardState>(() => {
-		const base = getBasicData();
-		return {
-			...base,
-			lastOperation: null,
+	const [data, setData] = useState<BoardState | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+
+	const pathname = usePathname();
+	const pathSegments = pathname.split('/');
+	const workflowId = pathSegments[pathSegments.length - 1];
+	const API_URL = `/api/issues/workflow/${workflowId}/statuses`;
+
+	// Fetch data từ API khi component mount
+	useEffect(() => {
+		const fetchBoardData = async () => {
+			try {
+				setLoading(true);
+				
+				const response = await fetch(API_URL);
+				
+				if (!response.ok) {
+					throw new Error(`HTTP error! status: ${response.status}`);
+				}
+				
+				const apiData = await response.json();
+				console.log('API data:', apiData);
+				
+				// Transform API data thành format phù hợp với Board
+				// Bạn cần điều chỉnh transformation này dựa trên cấu trúc API response thực tế
+				const transformedData = {
+					columnMap: apiData.columnMap || {},
+					orderedColumnIds: apiData.orderedColumnIds || [],
+					lastOperation: null,
+				};
+				
+				setData(transformedData);
+				setError(null);
+			} catch (err) {
+				console.error('Error fetching board data:', err);
+				setError(err instanceof Error ? err.message : 'Failed to fetch data');
+			} finally {
+				setLoading(false);
+			}
 		};
-	});
+
+		fetchBoardData();
+	}, []);
 
 	const stableData = useRef(data);
 	useEffect(() => {
@@ -68,10 +106,10 @@ export default function BoardExample() {
 
 	const [registry] = useState(createRegistry);
 
-	const { lastOperation } = data;
+	const lastOperation = data?.lastOperation;
 
 	useEffect(() => {
-		if (lastOperation === null) {
+		if (!lastOperation || !data) {
 			return;
 		}
 		const { outcome, trigger } = lastOperation;
@@ -79,7 +117,7 @@ export default function BoardExample() {
 		if (outcome.type === 'column-reorder') {
 			const { startIndex, finishIndex } = outcome;
 
-			const { columnMap, orderedColumnIds } = stableData.current;
+			const { columnMap, orderedColumnIds } = stableData.current!;
 			const sourceColumn = columnMap[orderedColumnIds[finishIndex]];
 
 			const entry = registry.getColumn(sourceColumn.columnId);
@@ -97,11 +135,11 @@ export default function BoardExample() {
 		if (outcome.type === 'card-reorder') {
 			const { columnId, startIndex, finishIndex } = outcome;
 
-			const { columnMap } = stableData.current;
+			const { columnMap } = stableData.current!;
 			const column = columnMap[columnId];
 			const item = column.items[finishIndex];
 
-			const entry = registry.getCard(item.userId);
+			const entry = registry.getCard(item.issueId);
 			triggerPostMoveFlash(entry.element);
 
 			if (trigger !== 'keyboard') {
@@ -120,8 +158,8 @@ export default function BoardExample() {
 		if (outcome.type === 'card-move') {
 			const { finishColumnId, itemIndexInStartColumn, itemIndexInFinishColumn } = outcome;
 
-			const data = stableData.current;
-			const destinationColumn = data.columnMap[finishColumnId];
+			const dataRef = stableData.current!;
+			const destinationColumn = dataRef.columnMap[finishColumnId];
 			const item = destinationColumn.items[itemIndexInFinishColumn];
 
 			const finishPosition =
@@ -129,7 +167,7 @@ export default function BoardExample() {
 					? itemIndexInFinishColumn + 1
 					: destinationColumn.items.length;
 
-			const entry = registry.getCard(item.userId);
+			const entry = registry.getCard(item.issueId);
 			triggerPostMoveFlash(entry.element);
 
 			if (trigger !== 'keyboard') {
@@ -142,22 +180,20 @@ export default function BoardExample() {
 				} to position ${finishPosition} in the ${destinationColumn.title} column.`,
 			);
 
-			/**
-			 * Because the card has moved column, it will have remounted.
-			 * This means we need to manually restore focus to it.
-			 */
 			entry.actionMenuTrigger.focus();
 
 			return;
 		}
-	}, [lastOperation, registry]);
+	}, [lastOperation, registry, data]);
 
 	useEffect(() => {
 		return liveRegion.cleanup();
 	}, []);
 
 	const getColumns = useCallback(() => {
-		const { columnMap, orderedColumnIds } = stableData.current;
+		const currentData = stableData.current;
+		if (!currentData) return [];
+		const { columnMap, orderedColumnIds } = currentData;
 		return orderedColumnIds.map((columnId) => columnMap[columnId]);
 	}, []);
 
@@ -172,6 +208,8 @@ export default function BoardExample() {
 			trigger?: Trigger;
 		}) => {
 			setData((data) => {
+				if (!data) return data;
+				
 				const outcome: Outcome = {
 					type: 'column-reorder',
 					columnId: data.orderedColumnIds[startIndex],
@@ -209,6 +247,8 @@ export default function BoardExample() {
 			trigger?: Trigger;
 		}) => {
 			setData((data) => {
+				if (!data) return data;
+				
 				const sourceColumn = data.columnMap[columnId];
 				const updatedItems = reorder({
 					list: sourceColumn.items,
@@ -260,17 +300,17 @@ export default function BoardExample() {
 			itemIndexInFinishColumn?: number;
 			trigger?: 'pointer' | 'keyboard';
 		}) => {
-			// invalid cross column movement
 			if (startColumnId === finishColumnId) {
 				return;
 			}
 			setData((data) => {
+				if (!data) return data;
+				
 				const sourceColumn = data.columnMap[startColumnId];
 				const destinationColumn = data.columnMap[finishColumnId];
-				const item: Person = sourceColumn.items[itemIndexInStartColumn];
+				const item: Issue = sourceColumn.items[itemIndexInStartColumn];
 
 				const destinationItems = Array.from(destinationColumn.items);
-				// Going into the first position if no index is provided
 				const newIndexInDestination = itemIndexInFinishColumn ?? 0;
 				destinationItems.splice(newIndexInDestination, 0, item);
 
@@ -278,7 +318,7 @@ export default function BoardExample() {
 					...data.columnMap,
 					[startColumnId]: {
 						...sourceColumn,
-						items: sourceColumn.items.filter((i) => i.userId !== item.userId),
+						items: sourceColumn.items.filter((i) => i.issueId !== item.issueId),
 					},
 					[finishColumnId]: {
 						...destinationColumn,
@@ -306,9 +346,94 @@ export default function BoardExample() {
 		[],
 	);
 
+	useEffect(() => {
+		if (!data || data.lastOperation === null) {
+			return;
+		}
+
+		const { outcome } = data.lastOperation;
+		const { columnMap, orderedColumnIds } = data;
+
+		const syncWithBackend = async () => {
+			try {
+				let response: Response;
+
+				switch (outcome.type) {
+					case 'column-reorder': {
+						// API 1: Reorder Columns
+						response = await fetch(`/api/issues/workflow/${workflowId}/columns/reorder`, {
+							method: 'PATCH',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({
+								orderedColumnIds: orderedColumnIds.map(id => parseInt(id))
+							}),
+						});
+						break;
+					}
+
+					case 'card-reorder': {
+						// API 2: Reorder Cards in Same Column
+						const { columnId } = outcome;
+						const column = columnMap[columnId];
+						
+						// Sử dụng trường 'id' từ item (database ID thực tế)
+						const orderedIssueIds = column.items.map(item => item.id);
+
+						response = await fetch(`/api/issues/status/${columnId}/cards/reorder`, {
+							method: 'PATCH',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ orderedIssueIds }),
+						});
+						break;
+					}
+
+					case 'card-move': {
+						// API 3: Move Card to Different Column
+						const { finishColumnId, itemIndexInFinishColumn } = outcome;
+						const destinationColumn = columnMap[finishColumnId];
+						const movedCard = destinationColumn.items[itemIndexInFinishColumn];
+						
+						// Sử dụng trường 'id' từ movedCard (database ID thực tế)
+						const movedCardId = movedCard.id;
+
+						response = await fetch(`/api/issues/card/${movedCardId}/move`, {
+							method: 'PATCH',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({
+								targetStatusId: parseInt(finishColumnId),
+								targetIndex: itemIndexInFinishColumn,
+							}),
+						});
+						break;
+					}
+
+					default:
+						return;
+				}
+
+				if (!response.ok) {
+					const errorData = await response.json();
+					console.error('[API ERROR]', errorData);
+					// Có thể thêm logic rollback hoặc hiển thị error cho user
+				} else {
+					const result = await response.json();
+					console.log('[API SUCCESS]', result);
+				}
+			} catch (error) {
+				console.error('[API CALL FAILED]', error);
+				// Có thể thêm logic rollback hoặc retry
+			}
+		};
+
+		syncWithBackend();
+
+	}, [data, workflowId]);
+
 	const [instanceId] = useState(() => Symbol('instance-id'));
 
 	useEffect(() => {
+		if (!data) return;
+		
 		return combine(
 			monitorForElements({
 				canMonitor({ source }) {
@@ -316,14 +441,9 @@ export default function BoardExample() {
 				},
 				onDrop(args) {
 					const { location, source } = args;
-					// didn't drop on anything
 					if (!location.current.dropTargets.length) {
 						return;
 					}
-					// need to handle drop
-
-					// 1. remove element from original position
-					// 2. move to new position
 
 					if (source.data.type === 'column') {
 						const startIndex: number = data.orderedColumnIds.findIndex(
@@ -345,16 +465,15 @@ export default function BoardExample() {
 
 						reorderColumn({ startIndex, finishIndex, trigger: 'pointer' });
 					}
-					// Dragging a card
+
 					if (source.data.type === 'card') {
 						const itemId = source.data.itemId;
 						invariant(typeof itemId === 'string');
-						// TODO: these lines not needed if item has columnId on it
 						const [, startColumnRecord] = location.initial.dropTargets;
 						const sourceId = startColumnRecord.data.columnId;
 						invariant(typeof sourceId === 'string');
 						const sourceColumn = data.columnMap[sourceId];
-						const itemIndex = sourceColumn.items.findIndex((item) => item.userId === itemId);
+						const itemIndex = sourceColumn.items.findIndex((item) => item.issueId === itemId);
 
 						if (location.current.dropTargets.length === 1) {
 							const [destinationColumnRecord] = location.current.dropTargets;
@@ -363,7 +482,6 @@ export default function BoardExample() {
 							const destinationColumn = data.columnMap[destinationId];
 							invariant(destinationColumn);
 
-							// reordering in same column
 							if (sourceColumn === destinationColumn) {
 								const destinationIndex = getReorderDestinationIndex({
 									startIndex: itemIndex,
@@ -380,7 +498,6 @@ export default function BoardExample() {
 								return;
 							}
 
-							// moving to a new column
 							moveCard({
 								itemIndexInStartColumn: itemIndex,
 								startColumnId: sourceColumn.columnId,
@@ -390,7 +507,6 @@ export default function BoardExample() {
 							return;
 						}
 
-						// dropping in a column (relative to a card)
 						if (location.current.dropTargets.length === 2) {
 							const [destinationCardRecord, destinationColumnRecord] = location.current.dropTargets;
 							const destinationColumnId = destinationColumnRecord.data.columnId;
@@ -398,13 +514,12 @@ export default function BoardExample() {
 							const destinationColumn = data.columnMap[destinationColumnId];
 
 							const indexOfTarget = destinationColumn.items.findIndex(
-								(item) => item.userId === destinationCardRecord.data.itemId,
+								(item) => item.issueId === destinationCardRecord.data.itemId,
 							);
 							const closestEdgeOfTarget: Edge | null = extractClosestEdge(
 								destinationCardRecord.data,
 							);
 
-							// case 1: ordering in the same column
 							if (sourceColumn === destinationColumn) {
 								const destinationIndex = getReorderDestinationIndex({
 									startIndex: itemIndex,
@@ -420,8 +535,6 @@ export default function BoardExample() {
 								});
 								return;
 							}
-
-							// case 2: moving into a new column relative to a card
 
 							const destinationIndex =
 								closestEdgeOfTarget === 'bottom' ? indexOfTarget + 1 : indexOfTarget;
@@ -451,6 +564,21 @@ export default function BoardExample() {
 			instanceId,
 		};
 	}, [getColumns, reorderColumn, reorderCard, registry, moveCard, instanceId]);
+
+	// Hiển thị loading state
+	if (loading) {
+		return <div>Loading board data...</div>;
+	}
+
+	// Hiển thị error state
+	if (error) {
+		return <div>Error: {error}</div>;
+	}
+
+	// Kiểm tra data có tồn tại không
+	if (!data) {
+		return <div>No data available</div>;
+	}
 
 	return (
 		<BoardContext.Provider value={contextValue}>

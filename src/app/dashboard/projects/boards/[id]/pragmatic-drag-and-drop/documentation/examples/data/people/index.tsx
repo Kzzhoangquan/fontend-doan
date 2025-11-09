@@ -36,9 +36,15 @@ import Tanya from './images/processed/Tanya';
 import Tori from './images/processed/Tori';
 import Vania from './images/processed/Vania';
 
-export type Person = {
-	userId: string;
+export type Issue = {
+	id: number;
+	issueId: string;
 	name: string;
+	summary: string;
+	epic_name: string;
+	issue_type: string;
+	priority: string;
+	points: number;
 	role: string;
 	avatarUrl: string;
 };
@@ -100,42 +106,86 @@ let sharedLookupIndex: number = 0;
 /**
  * Note: this does not use randomness so that it is stable for VR tests
  */
-export function getPerson(): Person {
+export function getIssue(): Issue {
 	sharedLookupIndex++;
-	return getPersonFromPosition({ position: sharedLookupIndex });
+	return getIssueFromPosition({ position: sharedLookupIndex });
 }
 
-export function getPersonFromPosition({ position }: { position: number }): Person {
-	// use the next name
-	const name = names[position % names.length];
-	// use the next role
-	const role = roles[position % roles.length];
-	return {
-		userId: `id:${position}`,
-		name,
-		role,
-		avatarUrl: avatarMap[name],
-	};
+const issueSummaries = [
+    'Tối ưu hóa hiệu suất API', 
+    'Cập nhật giao diện người dùng trang đăng nhập', 
+    'Sửa lỗi crash khi tải ảnh', 
+    'Thêm tính năng lọc nâng cao',
+    'Viết tài liệu cho module thanh toán',
+];
+
+const epicNames = [
+    'EPIC-Core', 
+    'EPIC-UX-Improvements', 
+    'EPIC-Performance', 
+    'EPIC-Data-Migration',
+];
+
+const issueTypes = [
+    'bug', 
+    'feature', 
+    'request', 
+    'story',
+    'task',
+];
+
+const priorities = [
+    'highest', 
+    'high', 
+    'medium', 
+    'low', 
+    'lowest',
+];
+
+const pointsList = [1, 2, 3, 5, 8];
+
+export function getIssueFromPosition({ position }: { position: number }): Issue {
+    const name = names[position % names.length];
+    const role = roles[position % roles.length];
+
+    const randomSummary = issueSummaries[position % issueSummaries.length];
+    const randomEpicName = epicNames[position % epicNames.length];
+    const randomIssueType = issueTypes[position % issueTypes.length];
+    const randomPriority = priorities[position % priorities.length];
+    const randomPoints = pointsList[position % pointsList.length];
+
+    return {
+		id: position,
+        issueId: `ERP${position}`,
+        name,
+        summary: randomSummary,
+        epic_name: randomEpicName,
+        issue_type: randomIssueType,
+        priority: randomPriority,
+        points: randomPoints,
+        role,
+        avatarUrl: avatarMap[name],
+    };
 }
 
-export function getPeopleFromPosition({
+export function getIssuesFromPosition({
 	amount,
 	startIndex,
 }: {
 	amount: number;
 	startIndex: number;
-}): Person[] {
-	return Array.from({ length: amount }, () => getPersonFromPosition({ position: startIndex++ }));
+}): Issue[] {
+	return Array.from({ length: amount }, () => getIssueFromPosition({ position: startIndex++ }));
 }
 
-export function getPeople({ amount }: { amount: number }): Person[] {
-	return Array.from({ length: amount }, () => getPerson());
+export function getIssues({ amount }: { amount: number }): Issue[] {
+	return Array.from({ length: amount }, () => getIssue());
 }
 
 export type ColumnType = {
 	title: string;
 	columnId: string;
-	items: Person[];
+	items: Issue[];
 };
 export type ColumnMap = { [columnId: string]: ColumnType };
 
@@ -152,7 +202,7 @@ export function getData({
 		const column: ColumnType = {
 			title: `Column ${i}`,
 			columnId: `column-${i}`,
-			items: getPeople({ amount: itemsPerColumn }),
+			items: getIssues({ amount: itemsPerColumn }),
 		};
 		columnMap[column.columnId] = column;
 	}
@@ -166,25 +216,26 @@ export function getData({
 }
 
 export function getBasicData() {
+	sharedLookupIndex = 0;
 	const columnMap: ColumnMap = {
-		confluence: {
-			title: 'Confluence',
-			columnId: 'confluence',
-			items: getPeople({ amount: 10 }),
+		to_do: {
+			title: 'To Do',
+			columnId: 'to_do',
+			items: getIssues({ amount: 10 }),
 		},
-		jira: {
-			title: 'Jira',
-			columnId: 'jira',
-			items: getPeople({ amount: 10 }),
+		in_progress: {
+			title: 'In Progress',
+			columnId: 'in_progress',
+			items: getIssues({ amount: 10 }),
 		},
-		trello: {
-			title: 'Trello',
-			columnId: 'trello',
-			items: getPeople({ amount: 10 }),
+		done: {
+			title: 'Done',
+			columnId: 'done',
+			items: getIssues({ amount: 10 }),
 		},
 	};
 
-	const orderedColumnIds = ['confluence', 'jira', 'trello'];
+	const orderedColumnIds = ['to_do', 'in_progress', 'done'];
 
 	return {
 		columnMap,
