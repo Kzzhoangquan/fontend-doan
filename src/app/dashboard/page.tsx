@@ -1,129 +1,206 @@
 'use client';
 
 import { useAuth } from '@/hooks/useAuth';
+import { Card, Row, Col, Statistic, Avatar, List, Button, Space, Tag, Spin } from 'antd';
 import { 
-  Users, 
-  FolderKanban, 
-  DollarSign, 
-  TrendingUp,
-  Calendar,
-  AlertCircle 
-} from 'lucide-react';
+  UserOutlined,
+  ProjectOutlined,
+  DollarOutlined,
+  RiseOutlined,
+  CalendarOutlined,
+  TeamOutlined,
+  FolderOpenOutlined,
+  CheckCircleOutlined,
+} from '@ant-design/icons';
+import { ArrowUpOutlined } from '@ant-design/icons';
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   const stats = [
     {
-      label: 'Tổng nhân viên',
-      value: '248',
+      title: 'Tổng nhân viên',
+      value: 248,
+      prefix: <UserOutlined />,
+      suffix: <ArrowUpOutlined style={{ color: '#52c41a' }} />,
+      valueStyle: { color: '#3f8600' },
       change: '+12%',
-      icon: Users,
-      color: 'blue',
     },
     {
-      label: 'Dự án đang chạy',
-      value: '32',
+      title: 'Dự án đang chạy',
+      value: 32,
+      prefix: <ProjectOutlined />,
+      suffix: <ArrowUpOutlined style={{ color: '#52c41a' }} />,
+      valueStyle: { color: '#722ed1' },
       change: '+5%',
-      icon: FolderKanban,
-      color: 'purple',
     },
     {
-      label: 'Tổng lương tháng',
-      value: '₫2.4B',
+      title: 'Tổng lương tháng',
+      value: '2.4B',
+      prefix: '₫',
+      suffix: <ArrowUpOutlined style={{ color: '#52c41a' }} />,
+      valueStyle: { color: '#cf1322' },
       change: '+8%',
-      icon: DollarSign,
-      color: 'green',
     },
     {
-      label: 'Hiệu suất',
-      value: '94%',
+      title: 'Hiệu suất',
+      value: 94,
+      suffix: '%',
+      prefix: <RiseOutlined />,
+      valueStyle: { color: '#fa8c16' },
       change: '+2%',
-      icon: TrendingUp,
-      color: 'orange',
     },
   ];
 
+  const activities = [
+    {
+      title: 'Nguyễn Văn A đã hoàn thành task "Thiết kế giao diện"',
+      time: '2 giờ trước',
+      avatar: 'https://api.dicebear.com/7.x/miniavs/svg?seed=1',
+    },
+    {
+      title: 'Trần Thị B đã tạo dự án mới "Website E-commerce"',
+      time: '3 giờ trước',
+      avatar: 'https://api.dicebear.com/7.x/miniavs/svg?seed=2',
+    },
+    {
+      title: 'Lê Văn C đã cập nhật tiến độ sprint #12',
+      time: '5 giờ trước',
+      avatar: 'https://api.dicebear.com/7.x/miniavs/svg?seed=3',
+    },
+    {
+      title: 'Phạm Thị D đã yêu cầu nghỉ phép',
+      time: '1 ngày trước',
+      avatar: 'https://api.dicebear.com/7.x/miniavs/svg?seed=4',
+    },
+  ];
+
+  // Loading state
+  if (!isAuthenticated) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <Spin size="large" tip="Đang tải..." />
+      </div>
+    );
+  }
+
+  const displayName = user?.full_name || user?.username || 'Người dùng';
+  const roleName = user?.roles?.[0]?.name || 'Nhân viên';
+
   return (
-    <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="bg-linear-to-r from-(--color-primary-blue) to-purple-600 rounded-2xl p-8 text-white shadow-xl">
-        <h1 className="text-3xl font-bold mb-2">
-          Xin chào, {user?.name}! 👋
-        </h1>
-        <p className="text-blue-100">
-          Chào mừng bạn quay trở lại với hệ thống quản lý
-        </p>
-      </div>
+    <div style={{ padding: 24 }}>
+      {/* Welcome Card */}
+      <Card
+        style={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          marginBottom: 24,
+          border: 'none',
+        }}
+      >
+        <Space direction="vertical" size={8}>
+          <h1 style={{ color: 'white', fontSize: 28, fontWeight: 'bold', margin: 0 }}>
+            Xin chào, {displayName}! 👋
+          </h1>
+          <p style={{ color: 'rgba(255,255,255,0.8)', margin: 0 }}>
+            Chào mừng bạn quay trở lại với hệ thống quản lý - {roleName}
+          </p>
+          <Space style={{ marginTop: 12 }}>
+            <Tag color="blue" style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white' }}>
+              @{user?.username}
+            </Tag>
+            {user?.employee_code && (
+              <Tag color="purple" style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white' }}>
+                {user.employee_code}
+              </Tag>
+            )}
+          </Space>
+        </Space>
+      </Card>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <div
-              key={stat.label}
-              className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className={`p-3 rounded-lg bg-${stat.color}-50`}>
-                  <Icon className={`w-6 h-6 text-${stat.color}-600`} />
-                </div>
-                <span className="text-sm font-medium text-green-600 bg-green-50 px-2 py-1 rounded">
-                  {stat.change}
-                </span>
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-1">{stat.value}</h3>
-              <p className="text-sm text-gray-600">{stat.label}</p>
-            </div>
-          );
-        })}
-      </div>
+      {/* Stats Cards */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        {stats.map((stat, index) => (
+          <Col xs={24} sm={12} lg={6} key={index}>
+            <Card hoverable>
+              <Statistic
+                title={stat.title}
+                value={stat.value}
+                prefix={stat.prefix}
+                suffix={stat.suffix}
+                valueStyle={stat.valueStyle}
+              />
+              <Tag color="success" style={{ marginTop: 8 }}>
+                {stat.change}
+              </Tag>
+            </Card>
+          </Col>
+        ))}
+      </Row>
 
-      {/* Recent Activity & Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Content Row */}
+      <Row gutter={[16, 16]}>
         {/* Recent Activity */}
-        <div className="lg:col-span-2 bg-white rounded-xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-gray-900">Hoạt động gần đây</h2>
-            <button className="text-sm text-(--color-primary-blue) hover:underline">
-              Xem tất cả
-            </button>
-          </div>
-          <div className="space-y-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex items-start gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors">
-                <div className="w-10 h-10 rounded-full bg-linear-to-br from-blue-400 to-purple-500 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">
-                    Nguyễn Văn A đã hoàn thành task "Thiết kế giao diện"
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">2 giờ trước</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <Col xs={24} lg={16}>
+          <Card
+            title="Hoạt động gần đây"
+            extra={<Button type="link">Xem tất cả</Button>}
+          >
+            <List
+              itemLayout="horizontal"
+              dataSource={activities}
+              renderItem={(item) => (
+                <List.Item>
+                  <List.Item.Meta
+                    avatar={<Avatar src={item.avatar} />}
+                    title={item.title}
+                    description={item.time}
+                  />
+                </List.Item>
+              )}
+            />
+          </Card>
+        </Col>
 
         {/* Quick Actions */}
-        <div className="bg-white rounded-xl p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-gray-900 mb-6">Thao tác nhanh</h2>
-          <div className="space-y-3">
-            <button className="w-full flex items-center gap-3 p-3 rounded-lg border-2 border-dashed border-gray-200 hover:border-(--color-primary-blue) hover:bg-blue-50 transition-all text-left">
-              <Users className="w-5 h-5 text-gray-600" />
-              <span className="text-sm font-medium text-gray-700">Thêm nhân viên</span>
-            </button>
-            <button className="w-full flex items-center gap-3 p-3 rounded-lg border-2 border-dashed border-gray-200 hover:border-(--color-primary-blue) hover:bg-blue-50 transition-all text-left">
-              <FolderKanban className="w-5 h-5 text-gray-600" />
-              <span className="text-sm font-medium text-gray-700">Tạo dự án mới</span>
-            </button>
-            <button className="w-full flex items-center gap-3 p-3 rounded-lg border-2 border-dashed border-gray-200 hover:border-(--color-primary-blue) hover:bg-blue-50 transition-all text-left">
-              <Calendar className="w-5 h-5 text-gray-600" />
-              <span className="text-sm font-medium text-gray-700">Điểm danh</span>
-            </button>
-          </div>
-        </div>
-      </div>
+        <Col xs={24} lg={8}>
+          <Card title="Thao tác nhanh">
+            <Space direction="vertical" style={{ width: '100%' }} size={12}>
+              <Button
+                type="dashed"
+                icon={<TeamOutlined />}
+                block
+                size="large"
+              >
+                Thêm nhân viên
+              </Button>
+              <Button
+                type="dashed"
+                icon={<FolderOpenOutlined />}
+                block
+                size="large"
+              >
+                Tạo dự án mới
+              </Button>
+              <Button
+                type="dashed"
+                icon={<CalendarOutlined />}
+                block
+                size="large"
+              >
+                Điểm danh
+              </Button>
+              <Button
+                type="dashed"
+                icon={<CheckCircleOutlined />}
+                block
+                size="large"
+              >
+                Tạo yêu cầu
+              </Button>
+            </Space>
+          </Card>
+        </Col>
+      </Row>
     </div>
   );
 }

@@ -1,12 +1,17 @@
+// src/lib/constants/routes.ts
 export const ROUTES = {
+  // Auth
   AUTH: {
     LOGIN: '/auth/login',
     REGISTER: '/auth/register',
+    FORGOT_PASSWORD: '/auth/forgot-password',
   },
+
+  // Dashboard
   DASHBOARD: {
     HOME: '/dashboard',
-    
-    // HR Routes
+
+    // HR Management
     HR: {
       EMPLOYEES: '/dashboard/hr/employees',
       DEPARTMENTS: '/dashboard/hr/departments',
@@ -15,21 +20,21 @@ export const ROUTES = {
       ATTENDANCE: '/dashboard/hr/attendance',
       REQUESTS: '/dashboard/hr/requests',
     },
-    
-    // Project Routes
+
+    // Project Management
     PROJECTS: {
-      LIST: '/dashboard/projects/list',
-      DETAIL: (id: string) => `/dashboard/projects/${id}`,
+      LIST: '/dashboard/projects',
       ISSUES: '/dashboard/projects/issues',
       SPRINTS: '/dashboard/projects/sprints',
+      DETAIL: (id: string) => `/dashboard/projects/${id}`,
     },
-    
-    // Accounting Routes
+
+    // Accounting
     ACCOUNTING: {
       SALARY: '/dashboard/accounting/salary',
       REPORTS: '/dashboard/accounting/reports',
     },
-    
+
     // Settings
     SETTINGS: {
       PROFILE: '/dashboard/settings/profile',
