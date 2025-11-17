@@ -13,15 +13,16 @@ import ReactDOM from 'react-dom';
 import invariant from 'tiny-invariant';
 
 import Avatar from '@atlaskit/avatar';
-import Button, { IconButton } from '@atlaskit/button/new'; // Thêm Button
-import DropdownMenu, { DropdownItem, DropdownItemGroup } from '@atlaskit/dropdown-menu';
+import Button, { IconButton } from '@atlaskit/button/new';
+import { Dropdown, Menu } from 'antd';
+import type { MenuProps } from 'antd';
 // eslint-disable-next-line @atlaskit/design-system/no-banned-imports
 import mergeRefs from '@atlaskit/ds-lib/merge-refs';
 import Heading from '@atlaskit/heading';
 // This is the smaller MoreIcon soon to be more easily accessible with the
 // ongoing icon project
 import MoreIcon from '@atlaskit/icon/core/migration/show-more-horizontal--editor-more';
-import DetailIcon from '@atlaskit/icon/core/migration/eye-open--watch';
+import EditIcon from '@atlaskit/icon/glyph/edit';
 import { fg } from '@atlaskit/platform-feature-flags';
 import {
 	attachClosestEdge,
@@ -45,8 +46,8 @@ import { type ColumnType, type Issue } from '../../data/people';
 
 import { useBoardContext } from './board-context';
 import { useColumnContext } from './column-context';
-import { IssueDetailModal } from './IssueDetailModal';
-import { EpicTag } from './EpicTag';
+import { IssueEditModal } from '../../../../../IssueEditModal';
+import { EpicTag } from '../../../../../../epic/EpicTag';
 import { IssueTypeIcon } from './IssueTypeIcon';
 import { PriorityIcon } from './PriorityIcon';
 
@@ -99,29 +100,8 @@ type CardPrimitiveProps = {
 	onViewDetails: () => void;
 };
 
-function MoveToOtherColumnItem({
-	targetColumn,
-	startIndex,
-}: {
-	targetColumn: ColumnType;
-	startIndex: number;
-}) {
-	const { moveCard } = useBoardContext();
-	const { columnId } = useColumnContext();
-
-	const onClick = useCallback(() => {
-		moveCard({
-			startColumnId: columnId,
-			finishColumnId: targetColumn.columnId,
-			itemIndexInStartColumn: startIndex,
-		});
-	}, [columnId, moveCard, startIndex, targetColumn.columnId]);
-
-	return <DropdownItem onClick={onClick}>{targetColumn.title}</DropdownItem>;
-}
-
 function LazyDropdownItems({ issueId }: { issueId: string }) {
-	const { getColumns, reorderCard } = useBoardContext();
+	const { getColumns, reorderCard, moveCard } = useBoardContext();
 	const { columnId, getCardIndex, getNumCards } = useColumnContext();
 
 	const numCards = getNumCards();
@@ -148,53 +128,77 @@ function LazyDropdownItems({ issueId }: { issueId: string }) {
 
 	const moveColumnOptions = getColumns().filter((column) => column.columnId !== columnId);
 
-	return (
-		<Fragment>
-			<DropdownItemGroup title="Reorder">
-				<DropdownItem onClick={moveToTop} isDisabled={isMoveUpDisabled}>
-					Move to top
-				</DropdownItem>
-				<DropdownItem onClick={moveUp} isDisabled={isMoveUpDisabled}>
-					Move up
-				</DropdownItem>
-				<DropdownItem onClick={moveDown} isDisabled={isMoveDownDisabled}>
-					Move down
-				</DropdownItem>
-				<DropdownItem onClick={moveToBottom} isDisabled={isMoveDownDisabled}>
-					Move to bottom
-				</DropdownItem>
-			</DropdownItemGroup>
-			{moveColumnOptions.length ? (
-				<DropdownItemGroup title="Move to">
-					{moveColumnOptions.map((column) => (
-						<MoveToOtherColumnItem
-							key={column.columnId}
-							targetColumn={column}
-							startIndex={startIndex}
-						/>
-					))}
-				</DropdownItemGroup>
-			) : null}
-		</Fragment>
-	);
+	// Tạo menu items cho Antd
+	const menuItems: MenuProps['items'] = [
+		{
+			key: 'reorder',
+			label: 'Reorder',
+			type: 'group',
+			children: [
+				{
+					key: 'move-to-top',
+					label: 'Move to top',
+					disabled: isMoveUpDisabled,
+					onClick: moveToTop,
+				},
+				{
+					key: 'move-up',
+					label: 'Move up',
+					disabled: isMoveUpDisabled,
+					onClick: moveUp,
+				},
+				{
+					key: 'move-down',
+					label: 'Move down',
+					disabled: isMoveDownDisabled,
+					onClick: moveDown,
+				},
+				{
+					key: 'move-to-bottom',
+					label: 'Move to bottom',
+					disabled: isMoveDownDisabled,
+					onClick: moveToBottom,
+				},
+			],
+		},
+		...(moveColumnOptions.length
+			? [
+					{
+						key: 'move-to',
+						label: 'Move to',
+						type: 'group' as const,
+						children: moveColumnOptions.map((column) => ({
+							key: column.columnId,
+							label: column.title,
+							onClick: () => {
+								moveCard({
+									startColumnId: columnId,
+									finishColumnId: column.columnId,
+									itemIndexInStartColumn: startIndex,
+								});
+							},
+						})),
+					},
+			  ]
+			: []),
+	];
+
+	return <Menu items={menuItems} />;
 }
 
-
-
-
 const CardPrimitive = forwardRef<HTMLDivElement, CardPrimitiveProps>(function CardPrimitive(
-	{ closestEdge, item, state, actionMenuTriggerRef, onViewDetails }, // Nhận onViewDetails
+	{ closestEdge, item, state, actionMenuTriggerRef, onViewDetails },
 	ref,
 ) {
-	const { name, issueId, epic_name, issue_type, points, priority, avatarUrl, summary } = item; // Giữ avatarUrl cho người được giao nếu cần
+	const { name, issueId, epic_name, issue_type, points, priority, avatarUrl, summary } = item;
 
 	return (
 		<Grid
 			ref={ref}
 			testId={`item-${issueId}`}
-			templateColumns="1fr auto" // Tiêu đề và nút 3 chấm ở hàng trên cùng
-			templateRows="auto auto" // Hai hàng cho nội dung
-			rowGap="space.100" // Khoảng cách giữa các hàng
+			templateColumns="1fr auto"
+			templateRows="auto auto"
+			rowGap="space.100"
 			columnGap="space.100"
 			alignItems="center"
 			xcss={[baseStyles, stateStyles[state.type]]}
@@ -209,7 +213,7 @@ const CardPrimitive = forwardRef<HTMLDivElement, CardPrimitiveProps>(function Ca
 				{/* NÚT XEM CHI TIẾT */}
 				<Box xcss={[buttonColumnStyles, xcss({ pointerEvents: 'auto' })]}>
 					<IconButton
-						icon={(iconProps) => <DetailIcon {...iconProps} size="small" />}
+						icon={(iconProps) => <EditIcon {...iconProps} size="small" />}
 						label={`View details for ${issueId}`}
 						appearance="subtle"
 						spacing="compact"
@@ -219,54 +223,40 @@ const CardPrimitive = forwardRef<HTMLDivElement, CardPrimitiveProps>(function Ca
 					/>
 				</Box>
 
-				{/* NÚT 3 CHẤM (Dropdown) */}
-				<DropdownMenu
-					trigger={({ triggerRef, ...triggerProps }) => (
-						<IconButton
-							ref={
-								actionMenuTriggerRef
-									? mergeRefs([triggerRef, actionMenuTriggerRef])
-									: // Workaround for IconButton typing issue
-										mergeRefs([triggerRef])
-							}
-							icon={(iconProps) => <MoreIcon {...iconProps} size="small" />}
-							label={`Move ${issueId}`}
-							appearance="default"
-							spacing="compact"
-							{...triggerProps}
-						/>
-					)}
-					// shouldRenderToParent={fg('should-render-to-parent-should-be-true-design-syst')}
-					shouldRenderToParent={true}
-					placement="bottom-end"
+				{/* NÚT 3 CHẤM (Dropdown) - Sử dụng Antd */}
+				<Dropdown
+					dropdownRender={() => <LazyDropdownItems issueId={issueId} />}
+					trigger={['click']}
+					placement="bottomRight"
 				>
-					<LazyDropdownItems issueId={issueId} />
-				</DropdownMenu>
+					<IconButton
+						ref={actionMenuTriggerRef}
+						icon={(iconProps) => <MoreIcon {...iconProps} size="small" />}
+						label={`Move ${issueId}`}
+						appearance="default"
+						spacing="compact"
+					/>
+				</Dropdown>
 			</Inline>
 			{closestEdge && <DropIndicator edge={closestEdge} gap={token('space.100', '0')} />}
 
-            {/* Hàng 2: Các tag, Issue ID, Points, Assignee */}
-            <Stack space="space.100" grow="fill" xcss={xcss({ gridColumn: '1 / 3' })}>
-                {/* EPIC Tag */}
+			{/* Hàng 2: Các tag, Issue ID, Points, Assignee */}
+			<Stack space="space.100" grow="fill" xcss={xcss({ gridColumn: '1 / 3' })}>
+				{/* EPIC Tag */}
 				<Box>
 					{epic_name && (
 						<EpicTag epic_name={epic_name} />
 					)}
 				</Box>
 
-                {/* SCRUM-8, Points, Assignee */}
-                <Inline space="space.100" alignBlock="center" xcss={xcss({ width: '100%', justifyContent: 'space-between', })}>
+				{/* SCRUM-8, Points, Assignee */}
+				<Inline space="space.100" alignBlock="center" xcss={xcss({ width: '100%', justifyContent: 'space-between', })}>
 					{/* VÙNG BÊN TRÁI: Issue Type & ID */}
 					<Inline space="space.050" alignBlock="center">
-						{/*
-						Theo hình ảnh, Issue Type & ID không có icon đi kèm.
-						Nếu bạn muốn thêm icon, hãy thêm vào đây.
-						Ví dụ: <FlagIcon size="small" label="Issue type" />
-						*/}
 						<IssueTypeIcon 
 							type={issue_type} 
-							sizeClass="w-4 h-4" // Kích thước nhỏ hơn (ví dụ 12x12) để phù hợp với thẻ
-							className="text-gray-600" // Áp dụng màu sắc nếu SVG không tự có màu
+							sizeClass="w-4 h-4"
+							className="text-gray-600"
 						/>
 						<Text as="span">{issueId}</Text>
 					</Inline>
@@ -282,7 +272,6 @@ const CardPrimitive = forwardRef<HTMLDivElement, CardPrimitiveProps>(function Ca
 									paddingInline: 'space.100',
 									color: 'color.text.subtle',
 								})}>
-									{/* Giảm kích thước Text nếu cần, hoặc bỏ `as="span"` nếu Text đã mặc định là span */}
 									<Text as="span" >{points}</Text>
 								</Box>
 							</Inline>
@@ -290,23 +279,22 @@ const CardPrimitive = forwardRef<HTMLDivElement, CardPrimitiveProps>(function Ca
 
 						<PriorityIcon 
 							name={priority} 
-							sizeClass="w-4 h-4" // Kích thước nhỏ (12x12)
+							sizeClass="w-4 h-4"
 						/>
 
 						{/* Assignee (Avatar) */}
 						{avatarUrl && (
 							<Box xcss={xcss({ display: 'flex', alignItems: 'center' })}>
-								{/* Hiển thị avatar nhỏ */}
 								<Avatar size="small" src={avatarUrl} label={`Assignee: ${item.name}`} />
 							</Box>
 						)}
 					</Inline>
 				</Inline>
-            </Stack>
+			</Stack>
 
-            {closestEdge && <DropIndicator edge={closestEdge} gap={token('space.100', '0')} />}
-        </Grid>
-    );
+			{closestEdge && <DropIndicator edge={closestEdge} gap={token('space.100', '0')} />}
+		</Grid>
+	);
 });
 
 export const Card = memo(function Card({ item }: { item: Issue }) {
@@ -406,7 +394,7 @@ export const Card = memo(function Card({ item }: { item: Issue }) {
 				state={state}
 				closestEdge={closestEdge}
 				actionMenuTriggerRef={actionMenuTriggerRef}
-				onViewDetails={openModal} // Truyền handler cho nút chi tiết
+				onViewDetails={openModal}
 			/>
 			{state.type === 'preview' &&
 				ReactDOM.createPortal(
@@ -430,7 +418,14 @@ export const Card = memo(function Card({ item }: { item: Issue }) {
 				)}
 
 			{/* Hiển thị Modal chi tiết */}
-			{isModalOpen && <IssueDetailModal issue={item} onClose={closeModal} />}
+			<IssueEditModal 
+				issueId={item.id} 
+				visible={isModalOpen}
+				onClose={closeModal} 
+				onSuccess={() => {
+					console.log('Issue updated successfully');
+				}}
+			/>
 		</Fragment>
 	);
 });

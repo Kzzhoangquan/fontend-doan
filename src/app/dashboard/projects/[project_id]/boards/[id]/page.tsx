@@ -13,12 +13,14 @@ import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine';
 import { monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { reorder } from '@atlaskit/pragmatic-drag-and-drop/reorder';
 
-import { type ColumnMap, type ColumnType, type Issue } from './pragmatic-drag-and-drop/documentation/examples/data/people';
-import Board from './pragmatic-drag-and-drop/documentation/examples/pieces/board/board';
-import { BoardContext, type BoardContextValue } from './pragmatic-drag-and-drop/documentation/examples/pieces/board/board-context';
-import { Column } from './pragmatic-drag-and-drop/documentation/examples/pieces/board/column';
-import { createRegistry } from './pragmatic-drag-and-drop/documentation/examples/pieces/board/registry';
+import { type ColumnMap, type ColumnType, type Issue } from '../../../../../../components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/data/people';
+import Board from '../../../../../../components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/board';
+import { BoardContext, type BoardContextValue } from '../../../../../../components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/board-context';
+import { Column } from '../../../../../../components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/column';
+import { createRegistry } from '../../../../../../components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/registry';
 import { useRouter, usePathname } from 'next/navigation';
+import { Button } from 'antd';
+import { CreateIssueModal } from '@/components/project-module/issue/CreateIssueModal';
 
 type Outcome =
 	| {
@@ -54,6 +56,16 @@ type BoardState = {
 };
 
 export default function BoardExample() {
+	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+	const projectId = 1; // Lấy từ context hoặc props
+
+	const handleCreateIssue = (newIssue: any) => {
+		console.log('New issue created:', newIssue);
+		// Refresh board data hoặc update state
+		// Ví dụ: refetch board data
+		// fetchBoardData();
+	};
+
 	const [data, setData] = useState<BoardState | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -582,11 +594,19 @@ export default function BoardExample() {
 
 	return (
 		<BoardContext.Provider value={contextValue}>
+			<Button onClick={() => setIsCreateModalOpen(true)}>Create</Button>
 			<Board>
 				{data.orderedColumnIds.map((columnId) => {
 					return <Column column={data.columnMap[columnId]} key={columnId} />;
 				})}
 			</Board>
+			
+			<CreateIssueModal
+				visible={isCreateModalOpen}
+				onClose={() => setIsCreateModalOpen(false)}
+				onSuccess={handleCreateIssue}
+				projectId={projectId}
+			/>
 		</BoardContext.Provider>
 	);
 }
