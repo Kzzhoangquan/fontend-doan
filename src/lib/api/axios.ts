@@ -2,7 +2,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { storage } from './storage';
 
-// GỌI QUA /api PROXY (Next.js API Routes)
 const API_BASE = '/api';
 
 const api: AxiosInstance = axios.create({
@@ -12,13 +11,18 @@ const api: AxiosInstance = axios.create({
 });
 
 // === REQUEST INTERCEPTOR: TỰ ĐỘNG THÊM JWT ===
-api.interceptors.request.use((config) => {
-  const tokens = storage.getTokens();
-  if (tokens?.accessToken) {
-    config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+api.interceptors.request.use(
+  (config) => {
+    const tokens = storage.getTokens();
+    if (tokens?.accessToken) {
+      config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-  return config;
-});
+);
 
 // === RESPONSE INTERCEPTOR: AUTO REFRESH TOKEN ===
 let isRefreshing = false;
@@ -78,10 +82,17 @@ api.interceptors.response.use(
 
         console.log('📡 Calling refresh token API...');
         
-        // GỌI API REFRESH
-        const res = await axios.post(`${API_BASE}/auth/refresh`, {
-          refresh_token: tokens.refreshToken,
-        });
+        // ✅ GỌI API REFRESH VỚI BEARER TOKEN TRONG HEADER
+        const res = await axios.post(
+          `${API_BASE}/auth/refresh`,
+          {}, // Body rỗng
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${tokens.refreshToken}`, // ✅ Gửi refresh_token qua header
+            },
+          }
+        );
 
         const { access_token, refresh_token } = res.data;
         const newTokens = {
@@ -92,7 +103,7 @@ api.interceptors.response.use(
         console.log('✅ Token refreshed successfully');
         storage.setTokens(newTokens);
 
-        // RETRY REQUEST GỐC
+        // RETRY REQUEST GỐC VỚI TOKEN MỚI
         originalRequest.headers.Authorization = `Bearer ${access_token}`;
         processQueue(null, access_token);
 
@@ -108,10 +119,9 @@ api.interceptors.response.use(
       }
     }
 
-    // 403 - FORBIDDEN (Không có quyền)
+    // 403 - FORBIDDEN
     if (error.response?.status === 403) {
       console.warn('⛔ 403 Forbidden: Bạn không có quyền truy cập');
-      // Có thể show toast notification ở đây
     }
 
     return Promise.reject(error);
