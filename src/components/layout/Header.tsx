@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { MENU_ITEMS, MenuItem } from '@/lib/constants/menu';
@@ -30,27 +30,29 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  // Flatten menu items để search
-  const flattenMenuItems = (items: MenuItem[]): MenuItem[] => {
-    let result: MenuItem[] = [];
-    
-    items.forEach(item => {
-      // CHECK ROLE
-      if (hasAnyRole(item.roles)) {
-        result.push(item);
-        
-        // Nếu có children, flatten children
-        if (item.children) {
-          const filteredChildren = item.children.filter(child => hasAnyRole(child.roles));
-          result = [...result, ...filteredChildren];
+  // ✅ SỬ DỤNG useMemo ĐỂ CACHE allMenuItems
+  const allMenuItems = useMemo(() => {
+    const flattenMenuItems = (items: MenuItem[]): MenuItem[] => {
+      let result: MenuItem[] = [];
+      
+      items.forEach(item => {
+        // CHECK ROLE
+        if (hasAnyRole(item.roles)) {
+          result.push(item);
+          
+          // Nếu có children, flatten children
+          if (item.children) {
+            const filteredChildren = item.children.filter(child => hasAnyRole(child.roles));
+            result = [...result, ...filteredChildren];
+          }
         }
-      }
-    });
-    
-    return result;
-  };
+      });
+      
+      return result;
+    };
 
-  const allMenuItems = flattenMenuItems(MENU_ITEMS);
+    return flattenMenuItems(MENU_ITEMS);
+  }, [user?.roles]); // ← Dùng user.roles thay vì hasAnyRole function
 
   // Search logic
   useEffect(() => {
@@ -59,7 +61,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.href.toLowerCase().includes(searchQuery.toLowerCase())
       );
-      setSearchResults(filtered.slice(0, 8)); // Limit to 8 results
+      setSearchResults(filtered.slice(0, 8));
       setShowSearchResults(filtered.length > 0);
       setSelectedIndex(0);
     } else {
