@@ -8,11 +8,24 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        // Khi frontend gọi /api/issue/workflow/1/statuses
+        // Issues API
         source: '/api/issues/:path*',
-        
-        // Next.js sẽ proxy yêu cầu đó tới http://localhost:3000/issue/workflow/1/statuses
         destination: 'http://localhost:3000/issues/:path*', 
+      },
+      {
+        // Epics API
+        source: '/api/epics/:path*',
+        destination: 'http://localhost:3000/epics/:path*', 
+      },
+      {
+        // Projects API (nếu cần)
+        source: '/api/projects/:path*',
+        destination: 'http://localhost:3000/projects/:path*', 
+      },
+      {
+        // Catch-all cho các API khác
+        source: '/api/:path*',
+        destination: 'http://localhost:3000/:path*', 
       },
     ];
   },
