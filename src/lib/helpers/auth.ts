@@ -35,6 +35,9 @@ export function getUserRoles(user: User | null): UserRole[] {
  */
 export function hasRole(user: User | null, role: UserRole): boolean {
   const userRoles = getUserRoles(user);
+  if (userRoles.includes(UserRole.SUPER_ADMIN)) {
+    return true;
+  }
   return userRoles.includes(role);
 }
 
@@ -43,6 +46,9 @@ export function hasRole(user: User | null, role: UserRole): boolean {
  */
 export function hasAnyRole(user: User | null, roles: UserRole[]): boolean {
   const userRoles = getUserRoles(user);
+  if (userRoles.includes(UserRole.SUPER_ADMIN)) {
+    return true;
+  }
   return roles.some(role => userRoles.includes(role));
 }
 
@@ -51,5 +57,8 @@ export function hasAnyRole(user: User | null, roles: UserRole[]): boolean {
  */
 export function hasAllRoles(user: User | null, roles: UserRole[]): boolean {
   const userRoles = getUserRoles(user);
+  if (userRoles.includes(UserRole.SUPER_ADMIN)) {
+    return true;
+  }
   return roles.every(role => userRoles.includes(role));
 }
