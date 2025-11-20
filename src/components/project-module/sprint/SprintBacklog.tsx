@@ -26,6 +26,7 @@ import { SprintIssueCard } from './SprintIssueCard';
 import { IssueEditModal } from '../issue/IssueEditModal';
 import { CreateIssueModal } from '../issue/CreateIssueModal';
 import { Issue, Sprint } from './sprint.types';
+import { sprintService } from '@/lib/api/services/sprint.service';
 
 const { Title, Text } = Typography;
 
@@ -50,24 +51,18 @@ export const SprintBacklog: React.FC<SprintBacklogProps> = ({ projectId }) => {
             setLoading(true);
             
             // Fetch sprints
-            const sprintsRes = await axios.get(`http://localhost:3000/sprints`, {
-                params: { projectId },
-            });
-            setSprints(sprintsRes.data);
+            const sprintsData = await sprintService.getAll({ projectId });
+            setSprints(sprintsData);
 
             // Fetch backlog
-            const backlogRes = await axios.get(
-                `http://localhost:3000/sprints/backlog/${projectId}`
-            );
-            setBacklogIssues(backlogRes.data);
+            const backlogData = await sprintService.getBacklog(projectId);
+            setBacklogIssues(backlogData);
 
             // Fetch issues for each sprint
             const sprintIssuesData: Record<number, Issue[]> = {};
-            for (const sprint of sprintsRes.data) {
-                const issuesRes = await axios.get(
-                    `http://localhost:3000/sprints/${sprint.id}/issues`
-                );
-                sprintIssuesData[sprint.id] = issuesRes.data;
+            for (const sprint of sprintsData) {
+                const issuesData = await sprintService.getSprintIssues(sprint.id);
+                sprintIssuesData[sprint.id] = issuesData;
             }
             setSprintIssues(sprintIssuesData);
         } catch (error) {
@@ -108,7 +103,7 @@ export const SprintBacklog: React.FC<SprintBacklogProps> = ({ projectId }) => {
 
         try {
             // Move issue
-            await axios.post('http://localhost:3000/sprints/issues/move', {
+            await sprintService.moveIssue({
                 issue_id: issueId,
                 target_sprint_id: targetSprintId,
                 rank_order: destination.index + 1,
@@ -125,7 +120,7 @@ export const SprintBacklog: React.FC<SprintBacklogProps> = ({ projectId }) => {
     // Start sprint
     const handleStartSprint = async (sprintId: number) => {
         try {
-            await axios.post(`http://localhost:3000/sprints/${sprintId}/start`);
+            await sprintService.start(sprintId);
             message.success('Đã bắt đầu sprint');
             fetchData();
         } catch (error: any) {
@@ -137,7 +132,7 @@ export const SprintBacklog: React.FC<SprintBacklogProps> = ({ projectId }) => {
     // Complete sprint
     const handleCompleteSprint = async (sprintId: number) => {
         try {
-            await axios.post(`http://localhost:3000/sprints/${sprintId}/complete`);
+            await sprintService.complete(sprintId);
             message.success('Đã hoàn thành sprint');
             fetchData();
         } catch (error: any) {
@@ -149,7 +144,7 @@ export const SprintBacklog: React.FC<SprintBacklogProps> = ({ projectId }) => {
     // Delete sprint
     const handleDeleteSprint = async (sprintId: number) => {
         try {
-            await axios.delete(`http://localhost:3000/sprints/${sprintId}`);
+            await sprintService.delete(sprintId);
             message.success('Đã xóa sprint');
             fetchData();
         } catch (error: any) {

@@ -10,26 +10,12 @@ import {
     Space,
 } from 'antd';
 import { FlagOutlined } from '@ant-design/icons';
-import axios from 'axios';
 import dayjs from 'dayjs';
+import { epicService, Epic, CreateEpicDto, UpdateEpicDto } from '@/lib/api/services/epic.service';
+import { Project } from '@/lib/api/services/project.service';
 
 const { TextArea } = Input;
 const { Option } = Select;
-
-type Epic = {
-    id: number;
-    project_id: number;
-    epic_name: string;
-    goal: string | null;
-    status: string | null;
-    start_date: string | null;
-    due_date: string | null;
-};
-
-type Project = {
-    id: number;
-    project_name: string;
-};
 
 type EpicFormModalProps = {
     visible: boolean;
@@ -70,7 +56,7 @@ export const EpicFormModal: React.FC<EpicFormModalProps> = ({
         try {
             setSubmitting(true);
 
-            const submitData = {
+            const submitData: CreateEpicDto | UpdateEpicDto = {
                 ...values,
                 start_date: values.start_date
                     ? values.start_date.format('YYYY-MM-DD')
@@ -81,10 +67,10 @@ export const EpicFormModal: React.FC<EpicFormModalProps> = ({
             };
 
             if (isEditing) {
-                await axios.patch(`http://localhost:3000/epics/${epic.id}`, submitData);
+                await epicService.update(epic.id, submitData);
                 message.success('Đã cập nhật epic');
             } else {
-                await axios.post('http://localhost:3000/epics', submitData);
+                await epicService.create(submitData as CreateEpicDto);
                 message.success('Đã tạo epic mới');
             }
 

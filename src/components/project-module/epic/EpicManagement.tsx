@@ -21,33 +21,14 @@ import {
     FlagOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import axios from 'axios';
 import dayjs from 'dayjs';
 import { EpicFormModal } from './EpicFormModal';
 import { EpicDetailModal } from './EpicDetailModal';
+import { epicService, Epic } from '@/lib/api/services/epic.service';
+import { projectService, Project } from '@/lib/api/services/project.service';
 
 const { Title } = Typography;
 const { Option } = Select;
-
-type Epic = {
-    id: number;
-    project_id: number;
-    epic_name: string;
-    goal: string | null;
-    status: string | null;
-    start_date: string | null;
-    due_date: string | null;
-    project?: {
-        id: number;
-        project_name: string;
-    };
-    issue_count?: number;
-};
-
-type Project = {
-    id: number;
-    project_name: string;
-};
 
 type EpicManagementProps = {
     projectId?: number;
@@ -70,9 +51,8 @@ export const EpicManagement: React.FC<EpicManagementProps> = ({ projectId }) => 
     const fetchEpics = async (projectId?: number) => {
         try {
             setLoading(true);
-            const params = projectId ? { projectId } : {};
-            const response = await axios.get('http://localhost:3000/epics', { params });
-            setEpics(response.data);
+            const data = await epicService.getAll(projectId ? { projectId } : undefined);
+            setEpics(data);
         } catch (error) {
             console.error('Error fetching epics:', error);
             message.error('Không thể tải danh sách epic');
@@ -84,8 +64,8 @@ export const EpicManagement: React.FC<EpicManagementProps> = ({ projectId }) => 
     // Fetch projects
     const fetchProjects = async () => {
         try {
-            const response = await axios.get('http://localhost:3000/projects');
-            setProjects(response.data);
+            const data = await projectService.getAll();
+            setProjects(data);
         } catch (error) {
             console.error('Error fetching projects:', error);
         }
@@ -94,7 +74,7 @@ export const EpicManagement: React.FC<EpicManagementProps> = ({ projectId }) => 
     // Delete epic
     const handleDelete = async (id: number) => {
         try {
-            await axios.delete(`http://localhost:3000/epics/${id}`);
+            await epicService.delete(id);
             message.success('Đã xóa epic');
             fetchEpics(selectedProjectId);
         } catch (error: any) {

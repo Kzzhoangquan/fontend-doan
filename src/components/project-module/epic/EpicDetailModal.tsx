@@ -18,8 +18,8 @@ import {
     FileTextOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import axios from 'axios';
 import dayjs from 'dayjs';
+import { epicService, Epic } from '@/lib/api/services/epic.service';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -41,21 +41,6 @@ type Issue = {
     }>;
 };
 
-type Epic = {
-    id: number;
-    project_id: number;
-    epic_name: string;
-    goal: string | null;
-    status: string | null;
-    start_date: string | null;
-    due_date: string | null;
-    project?: {
-        id: number;
-        project_name: string;
-    };
-    issues?: Issue[];
-};
-
 type EpicDetailModalProps = {
     visible: boolean;
     epicId: number | null;
@@ -75,8 +60,8 @@ export const EpicDetailModal: React.FC<EpicDetailModalProps> = ({
     const fetchEpicDetail = async (id: number) => {
         try {
             setLoading(true);
-            const response = await axios.get(`http://localhost:3000/epics/${id}`);
-            setEpic(response.data);
+            const data = await epicService.getById(id);
+            setEpic(data);
         } catch (error) {
             console.error('Error fetching epic detail:', error);
             message.error('Không thể tải chi tiết epic');

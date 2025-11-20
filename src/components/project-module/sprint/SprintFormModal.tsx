@@ -11,9 +11,9 @@ import {
     Space,
 } from 'antd';
 import { RocketOutlined } from '@ant-design/icons';
-import axios from 'axios';
 import dayjs from 'dayjs';
 import { Sprint } from './sprint.types';
+import { sprintService, CreateSprintDto, UpdateSprintDto } from '@/lib/api/services/sprint.service';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -60,7 +60,7 @@ export const SprintFormModal: React.FC<SprintFormModalProps> = ({
         try {
             setSubmitting(true);
 
-            const submitData = {
+            const submitData: CreateSprintDto | UpdateSprintDto = {
                 project_id: projectId,
                 sprint_name: values.sprint_name,
                 goal: values.goal,
@@ -71,10 +71,10 @@ export const SprintFormModal: React.FC<SprintFormModalProps> = ({
             };
 
             if (isEditing) {
-                await axios.patch(`http://localhost:3000/sprints/${sprint.id}`, submitData);
+                await sprintService.update(sprint.id, submitData);
                 message.success('Đã cập nhật sprint');
             } else {
-                await axios.post('http://localhost:3000/sprints', submitData);
+                await sprintService.create(submitData as CreateSprintDto);
                 message.success('Đã tạo sprint mới');
             }
 
