@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useRole } from '@/hooks/useRole';
+import { useAuth } from '@/hooks/useAuth';
 import { MENU_ITEMS } from '@/lib/constants/menu';
 import { ChevronDown, ChevronRight, ChevronLeft } from 'lucide-react';
 
@@ -16,7 +16,7 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
-  const { hasAnyRole } = useRole();
+  const { hasAnyRole } = useAuth();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
   const toggleExpand = (label: string) => {
@@ -33,11 +33,20 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
   };
 
   const renderMenuItem = (item: typeof MENU_ITEMS[0], depth = 0) => {
+    // CHECK ROLE - Nếu user không có quyền thì không hiển thị
     if (!hasAnyRole(item.roles)) return null;
 
     const hasChildren = item.children && item.children.length > 0;
     const isExpanded = expandedItems.includes(item.label);
     const active = isActive(item.href);
+
+    // Nếu có children, filter children theo role
+    let filteredChildren = item.children;
+    if (hasChildren) {
+      filteredChildren = item.children!.filter(child => hasAnyRole(child.roles));
+      // Nếu không có children nào hợp lệ, không hiển thị parent
+      if (filteredChildren.length === 0) return null;
+    }
 
     return (
       <div key={item.label}>
@@ -46,7 +55,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
             onClick={() => toggleExpand(item.label)}
             className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all group ${
               active
-                ? 'bg-linear-to-r from-(--color-primary-blue) to-purple-600 text-white shadow-lg'
+                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
                 : 'text-gray-700 hover:bg-gray-100'
             } ${isCollapsed ? 'justify-center' : ''}`}
             style={{ paddingLeft: isCollapsed ? '16px' : `${depth * 12 + 16}px` }}
@@ -83,7 +92,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
             onClick={onClose}
             className={`flex items-center px-4 py-3 rounded-lg transition-all group ${
               active
-                ? 'bg-linear-to-r from-(--color-primary-blue) to-purple-600 text-white shadow-lg'
+                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
                 : 'text-gray-700 hover:bg-gray-100'
             } ${isCollapsed ? 'justify-center' : 'gap-3'}`}
             style={{ paddingLeft: isCollapsed ? '16px' : `${depth * 12 + 16}px` }}
@@ -107,7 +116,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
         {/* Children */}
         {hasChildren && isExpanded && !isCollapsed && (
           <div className="mt-1 space-y-1">
-            {item.children?.map(child => renderMenuItem(child, depth + 1))}
+            {filteredChildren?.map(child => renderMenuItem(child, depth + 1))}
           </div>
         )}
       </div>
@@ -150,7 +159,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
 
         {/* Footer */}
         <div 
-          className={`absolute bottom-0 left-0 right-0 p-4 bg-linear-to-t from-gray-50 to-transparent pointer-events-none transition-opacity duration-300 ${
+          className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none transition-opacity duration-300 ${
             isCollapsed 
               ? 'opacity-0' 
               : 'opacity-100 delay-100'

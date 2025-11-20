@@ -1,12 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { useAppDispatch } from '@/store/hooks';
-import { logout } from '@/store/slices/authSlice';
-import { removeToken } from '@/lib/utils/auth';
-import { useRole } from '@/hooks/useRole';
 import { MENU_ITEMS, MenuItem } from '@/lib/constants/menu';
 import { 
   Bell, 
@@ -25,9 +21,7 @@ interface HeaderProps {
 }
 
 export default function Header({ onMenuClick }: HeaderProps) {
-  const { user } = useAuth();
-  const { hasAnyRole } = useRole();
-  const dispatch = useAppDispatch();
+  const { user, logout, hasAnyRole } = useAuth();
   const router = useRouter();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,23 +30,29 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  // Flatten menu items để search
-  const flattenMenuItems = (items: MenuItem[]): MenuItem[] => {
-    let result: MenuItem[] = [];
-    
-    items.forEach(item => {
-      if (hasAnyRole(item.roles)) {
-        result.push(item);
-        if (item.children) {
-          result = [...result, ...flattenMenuItems(item.children)];
+  // ✅ SỬ DỤNG useMemo ĐỂ CACHE allMenuItems
+  const allMenuItems = useMemo(() => {
+    const flattenMenuItems = (items: MenuItem[]): MenuItem[] => {
+      let result: MenuItem[] = [];
+      
+      items.forEach(item => {
+        // CHECK ROLE
+        if (hasAnyRole(item.roles)) {
+          result.push(item);
+          
+          // Nếu có children, flatten children
+          if (item.children) {
+            const filteredChildren = item.children.filter(child => hasAnyRole(child.roles));
+            result = [...result, ...filteredChildren];
+          }
         }
-      }
-    });
-    
-    return result;
-  };
+      });
+      
+      return result;
+    };
 
-  const allMenuItems = flattenMenuItems(MENU_ITEMS);
+    return flattenMenuItems(MENU_ITEMS);
+  }, [user?.roles]); // ← Dùng user.roles thay vì hasAnyRole function
 
   // Search logic
   useEffect(() => {
@@ -61,14 +61,14 @@ export default function Header({ onMenuClick }: HeaderProps) {
         item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.href.toLowerCase().includes(searchQuery.toLowerCase())
       );
-      setSearchResults(filtered.slice(0, 8)); // Limit to 8 results
+      setSearchResults(filtered.slice(0, 8));
       setShowSearchResults(filtered.length > 0);
       setSelectedIndex(0);
     } else {
       setSearchResults([]);
       setShowSearchResults(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, allMenuItems]);
 
   // Click outside to close
   useEffect(() => {
@@ -82,9 +82,23 @@ export default function Header({ onMenuClick }: HeaderProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Keyboard shortcut: / to focus search
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement;
+        searchInput?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
+
   // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!showSearchResults) return;
+    if (!showSearchResults || searchResults.length === 0) return;
 
     switch (e.key) {
       case 'ArrowDown':
@@ -117,10 +131,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   };
 
   const handleLogout = () => {
-  dispatch(logout());
-  removeToken(); // ĐÃ XÓA CẢ COOKIE → OK
-  router.replace('/auth/login'); // ← THAY ĐỔI TẠI ĐÂY!
-  router.refresh(); // ← Ép middleware chạy lại
+    logout();
   };
 
   const highlightMatch = (text: string, query: string) => {
@@ -155,12 +166,12 @@ export default function Header({ onMenuClick }: HeaderProps) {
           </button>
 
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-linear-to-br from-(--color-primary-blue) to-purple-600 rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-lg">DĐQ</span>
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
+              <span className="text-white font-bold text-lg">HRM</span>
             </div>
             <div className="hidden md:block">
-              <h1 className="text-lg font-bold text-gray-900">ERP System</h1>
-              <p className="text-xs text-gray-500">Hệ thống Quản lý nội bộ doanh nghiệp</p>
+              <h1 className="text-lg font-bold text-gray-900">HRM System</h1>
+              <p className="text-xs text-gray-500">Hệ thống Quản lý Nhân sự & Dự án</p>
             </div>
           </div>
         </div>
@@ -178,7 +189,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
               onKeyDown={handleKeyDown}
               onFocus={() => searchQuery && setShowSearchResults(true)}
               placeholder="Tìm kiếm nhanh (nhấn / để focus)..."
-              className="w-full pl-10 pr-10 py-2 text-gray-900 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-(--color-primary-blue) focus:bg-white transition-all"
+              className="w-full pl-10 pr-10 py-2 text-gray-900 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
             />
 
             {/* Search Results Dropdown */}
@@ -198,19 +209,19 @@ export default function Header({ onMenuClick }: HeaderProps) {
                       onClick={() => navigateToItem(item)}
                       className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
                         index === selectedIndex
-                          ? 'bg-blue-50 border-l-4 border-l-(--color-primary-blue)'
+                          ? 'bg-blue-50 border-l-4 border-l-blue-500'
                           : 'hover:bg-gray-50 border-l-4 border-l-transparent'
                       }`}
                     >
                       <div className={`p-2 rounded-lg ${
-                        index === selectedIndex ? 'bg-(--color-primary-blue) text-white' : 'bg-gray-100 text-gray-600'
+                        index === selectedIndex ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600'
                       }`}>
                         <Icon className="w-4 h-4" />
                       </div>
                       
                       <div className="flex-1 min-w-0">
                         <p className={`text-sm font-medium truncate ${
-                          index === selectedIndex ? 'text-(--color-primary-blue)' : 'text-gray-900'
+                          index === selectedIndex ? 'text-blue-600' : 'text-gray-900'
                         }`}>
                           {highlightMatch(item.label, searchQuery)}
                         </p>
@@ -218,7 +229,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                       </div>
                       
                       <ArrowRight className={`w-4 h-4 shrink-0 ${
-                        index === selectedIndex ? 'text-(--color-primary-blue)' : 'text-gray-400'
+                        index === selectedIndex ? 'text-blue-500' : 'text-gray-400'
                       }`} />
                     </button>
                   );
@@ -269,13 +280,13 @@ export default function Header({ onMenuClick }: HeaderProps) {
               className="flex items-center gap-3 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <img
-                src={user?.avatar || 'https://ui-avatars.com/api/?name=User'}
-                alt={user?.name}
+                src={user?.avatar || `https://api.dicebear.com/7.x/miniavs/svg?seed=${user?.username}`}
+                alt={user?.full_name}
                 className="w-8 h-8 rounded-full border-2 border-gray-200"
               />
               <div className="hidden md:block text-left">
-                <p className="text-sm font-medium text-gray-900">{user?.name}</p>
-                <p className="text-xs text-gray-500">{user?.role}</p>
+                <p className="text-sm font-medium text-gray-900">{user?.full_name || user?.username}</p>
+                <p className="text-xs text-gray-500">{user?.roles?.[0]?.name || 'Nhân viên'}</p>
               </div>
               <ChevronDown className="w-4 h-4 text-gray-400" />
             </button>
@@ -287,18 +298,24 @@ export default function Header({ onMenuClick }: HeaderProps) {
                   className="fixed inset-0 z-10"
                   onClick={() => setShowUserMenu(false)}
                 />
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-20 fade-in">
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-20">
                   <div className="px-4 py-3 border-b border-gray-100">
-                    <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                    <p className="text-sm font-medium text-gray-900">{user?.full_name || user?.username}</p>
                     <p className="text-xs text-gray-500">{user?.email}</p>
                   </div>
                   
-                  <button className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors">
+                  <button
+                    onClick={() => router.push('/dashboard/settings/profile')}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                  >
                     <User className="w-4 h-4" />
                     Thông tin cá nhân
                   </button>
                   
-                  <button className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors">
+                  <button
+                    onClick={() => router.push('/dashboard/settings')}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                  >
                     <Settings className="w-4 h-4" />
                     Cài đặt
                   </button>

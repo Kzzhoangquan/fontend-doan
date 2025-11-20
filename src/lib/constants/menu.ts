@@ -1,3 +1,4 @@
+// src/lib/constants/menu.ts
 import { UserRole } from './roles';
 import { ROUTES } from './routes';
 import { 
@@ -25,49 +26,49 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Trang chủ',
     icon: Home,
     href: ROUTES.DASHBOARD.HOME,
-    roles: [UserRole.HR_MANAGER, UserRole.CONTENT_ADMIN, UserRole.EMPLOYEE, UserRole.ACCOUNTANT, UserRole.DEPARTMENT_HEAD],
+    roles: [UserRole.MANAGER, UserRole.CONTENT_ADMIN, UserRole.EMPLOYEE, UserRole.ACCOUNTANT, UserRole.DEPARTMENT_HEAD],
   },
   {
     label: 'Quản lý nhân sự',
     icon: Users,
     href: '/dashboard/hr',
-    roles: [UserRole.HR_MANAGER],
+    roles: [UserRole.MANAGER],
     children: [
       {
         label: 'Nhân viên',
         icon: Users,
         href: ROUTES.DASHBOARD.HR.EMPLOYEES,
-        roles: [UserRole.HR_MANAGER],
+        roles: [UserRole.MANAGER],
       },
       {
         label: 'Phòng ban',
         icon: Building2,
         href: ROUTES.DASHBOARD.HR.DEPARTMENTS,
-        roles: [UserRole.HR_MANAGER],
+        roles: [UserRole.MANAGER],
       },
       {
         label: 'Tài sản',
         icon: Package,
         href: ROUTES.DASHBOARD.HR.ASSETS,
-        roles: [UserRole.HR_MANAGER],
+        roles: [UserRole.MANAGER],
       },
       {
         label: 'Phân công tài sản',
         icon: Package,
         href: ROUTES.DASHBOARD.HR.ASSET_ASSIGNMENT,
-        roles: [UserRole.HR_MANAGER],
+        roles: [UserRole.MANAGER],
       },
       {
         label: 'Công ca',
         icon: Calendar,
         href: ROUTES.DASHBOARD.HR.ATTENDANCE,
-        roles: [UserRole.HR_MANAGER],
+        roles: [UserRole.MANAGER],
       },
       {
         label: 'Yêu cầu',
         icon: CheckSquare,
         href: ROUTES.DASHBOARD.HR.REQUESTS,
-        roles: [UserRole.HR_MANAGER],
+        roles: [UserRole.MANAGER],
       },
     ],
   },
@@ -121,13 +122,13 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Cài đặt',
     icon: Settings,
     href: '/dashboard/settings',
-    roles: [UserRole.HR_MANAGER, UserRole.CONTENT_ADMIN, UserRole.EMPLOYEE, UserRole.ACCOUNTANT, UserRole.DEPARTMENT_HEAD],
+    roles: [UserRole.MANAGER, UserRole.CONTENT_ADMIN, UserRole.EMPLOYEE, UserRole.ACCOUNTANT, UserRole.DEPARTMENT_HEAD],
     children: [
       {
         label: 'Thông tin cá nhân',
         icon: Users,
         href: ROUTES.DASHBOARD.SETTINGS.PROFILE,
-        roles: [UserRole.HR_MANAGER, UserRole.CONTENT_ADMIN, UserRole.EMPLOYEE, UserRole.ACCOUNTANT, UserRole.DEPARTMENT_HEAD],
+        roles: [UserRole.MANAGER, UserRole.CONTENT_ADMIN, UserRole.EMPLOYEE, UserRole.ACCOUNTANT, UserRole.DEPARTMENT_HEAD],
       },
       {
         label: 'Phân quyền',
