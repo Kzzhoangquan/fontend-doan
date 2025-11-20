@@ -5,6 +5,7 @@ export enum UserRole {
   EMPLOYEE = 'EMPLOYEE',
   ACCOUNTANT = 'ACCOUNTANT',
   DEPARTMENT_HEAD = 'DEPARTMENT_HEAD',
+  SUPER_ADMIN = 'SUPER_ADMIN',
 }
 
 export const ROLE_LABELS: Record<UserRole, string> = {
@@ -13,6 +14,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.EMPLOYEE]: 'Nhân viên',
   [UserRole.ACCOUNTANT]: 'Kế toán',
   [UserRole.DEPARTMENT_HEAD]: 'Trưởng phòng',
+  [UserRole.SUPER_ADMIN]: 'Quản trị hệ thống',
 };
 
 export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
@@ -21,4 +23,5 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   [UserRole.EMPLOYEE]: 'Nhân viên thực hiện công việc và quản lý dự án',
   [UserRole.ACCOUNTANT]: 'Quản lý lương và các báo cáo tài chính',
   [UserRole.DEPARTMENT_HEAD]: 'Quản lý phòng ban và dự án',
+  [UserRole.SUPER_ADMIN]: 'Quản trị hệ thống',
 };
