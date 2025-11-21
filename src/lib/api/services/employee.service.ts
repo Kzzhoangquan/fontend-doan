@@ -24,6 +24,7 @@ export interface Employee {
   avatar_url: string | null;
   status: string;
   roles: Role[];
+  password?: string;
 }
 
 export interface EmployeesResponse {
@@ -44,6 +45,16 @@ export interface GetEmployeesParams {
  * Employee API Service
  * Sử dụng axios instance đã có auto JWT & refresh token
  */
+const sanitizePayload = (data: Partial<Employee>) => {
+  const payload: Record<string, any> = {};
+  Object.entries(data).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+    if (typeof value === 'string' && value.trim() === '') return;
+    payload[key] = typeof value === 'string' ? value.trim() : value;
+  });
+  return payload;
+};
+
 export const employeeService = {
   /**
    * Lấy danh sách nhân viên (có phân trang & tìm kiếm)
@@ -65,7 +76,7 @@ export const employeeService = {
    * Tạo nhân viên mới
    */
   create: async (data: Partial<Employee>): Promise<Employee> => {
-    const response = await api.post<Employee>('/employees', data);
+    const response = await api.post<Employee>('/employees', sanitizePayload(data));
     return response.data;
   },
 
@@ -73,7 +84,7 @@ export const employeeService = {
    * Cập nhật nhân viên
    */
   update: async (id: number, data: Partial<Employee>): Promise<Employee> => {
-    const response = await api.put<Employee>(`/employees/${id}`, data);
+    const response = await api.patch<Employee>(`/employees/${id}`, sanitizePayload(data));
     return response.data;
   },
 
