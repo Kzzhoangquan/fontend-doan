@@ -15,16 +15,11 @@ import {
     UserAddOutlined,
     CloseOutlined,
 } from '@ant-design/icons';
-import axios from 'axios';
+import { issueService, Employee } from '@/lib/api/services/issue.service';
 
 const { Option } = Select;
 const { Text } = Typography;
 
-type Employee = {
-    id: number;
-    full_name: string;
-    email: string;
-};
 
 type IssueAssigneesProps = {
     issueId: number;
@@ -44,8 +39,8 @@ export const IssueAssignees: React.FC<IssueAssigneesProps> = ({
     const fetchAssignees = async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`/api/issues/${issueId}/assignees`);
-            setAssignees(response.data);
+            const data = await issueService.getAssignees(issueId);
+            setAssignees(data);
         } catch (error) {
             console.error('Error fetching assignees:', error);
             message.error('Không thể tải danh sách assignees');
@@ -57,10 +52,8 @@ export const IssueAssignees: React.FC<IssueAssigneesProps> = ({
     // Fetch available employees
     const fetchAvailableEmployees = async () => {
         try {
-            const response = await axios.get('/api/issues/employees', {
-                params: { projectId },
-            });
-            setAvailableEmployees(response.data);
+            const data = await issueService.getProjectEmployees(projectId);
+            setAvailableEmployees(data);
         } catch (error) {
             console.error('Error fetching employees:', error);
             message.error('Không thể tải danh sách nhân viên');
@@ -71,9 +64,7 @@ export const IssueAssignees: React.FC<IssueAssigneesProps> = ({
     const handleAddAssignee = async (employeeId: number) => {
         try {
             setAdding(true);
-            await axios.post(`/api/issues/${issueId}/assignees`, {
-                employee_id: employeeId,
-            });
+            await issueService.assignEmployee(issueId, employeeId);
             message.success('Đã thêm assignee');
             fetchAssignees();
         } catch (error: any) {
@@ -91,7 +82,7 @@ export const IssueAssignees: React.FC<IssueAssigneesProps> = ({
     // Remove assignee
     const handleRemoveAssignee = async (employeeId: number) => {
         try {
-            await axios.delete(`/api/issues/${issueId}/assignees/${employeeId}`);
+            await issueService.removeAssignee(issueId, employeeId);
             message.success('Đã xóa assignee');
             fetchAssignees();
         } catch (error) {

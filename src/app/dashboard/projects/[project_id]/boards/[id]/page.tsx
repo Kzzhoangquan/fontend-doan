@@ -1,9 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
 import invariant from 'tiny-invariant';
-
 import { triggerPostMoveFlash } from '@atlaskit/pragmatic-drag-and-drop-flourish/trigger-post-move-flash';
 import { extractClosestEdge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge';
 import type { Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/types';
@@ -12,15 +10,16 @@ import * as liveRegion from '@atlaskit/pragmatic-drag-and-drop-live-region';
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine';
 import { monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { reorder } from '@atlaskit/pragmatic-drag-and-drop/reorder';
-
-import { type ColumnMap, type ColumnType, type Issue } from '../../../../../../components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/data/people';
-import Board from '../../../../../../components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/board';
-import { BoardContext, type BoardContextValue } from '../../../../../../components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/board-context';
-import { Column } from '../../../../../../components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/column';
-import { createRegistry } from '../../../../../../components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/registry';
 import { useRouter, usePathname } from 'next/navigation';
-import { Button } from 'antd';
+import { Button, message } from 'antd';
+
+import { type ColumnMap, type ColumnType, type Issue } from '@/components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/data/people';
+import Board from '@/components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/board';
+import { BoardContext, type BoardContextValue } from '@/components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/board-context';
+import { Column } from '@/components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/column';
+import { createRegistry } from '@/components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/registry';
 import { CreateIssueModal } from '@/components/project-module/issue/CreateIssueModal';
+import { boardService } from '@/lib/api/services/board.service';
 
 type Outcome =
 	| {
@@ -73,7 +72,6 @@ export default function BoardExample() {
 	const pathname = usePathname();
 	const pathSegments = pathname.split('/');
 	const workflowId = pathSegments[pathSegments.length - 1];
-	const API_URL = `/api/issues/workflow/${workflowId}/statuses`;
 
 	// Fetch data từ API khi component mount
 	useEffect(() => {
@@ -81,13 +79,9 @@ export default function BoardExample() {
 			try {
 				setLoading(true);
 				
-				const response = await fetch(API_URL);
+				const apiData = await boardService.getBoardByWorkflow(parseInt(workflowId));
 				
-				if (!response.ok) {
-					throw new Error(`HTTP error! status: ${response.status}`);
-				}
 				
-				const apiData = await response.json();
 				console.log('API data:', apiData);
 				
 				// Transform API data thành format phù hợp với Board
@@ -358,6 +352,7 @@ export default function BoardExample() {
 		[],
 	);
 
+	// Sync with backend when operations occur
 	useEffect(() => {
 		if (!data || data.lastOperation === null) {
 			return;
@@ -368,18 +363,13 @@ export default function BoardExample() {
 
 		const syncWithBackend = async () => {
 			try {
-				let response: Response;
-
 				switch (outcome.type) {
 					case 'column-reorder': {
 						// API 1: Reorder Columns
-						response = await fetch(`/api/issues/workflow/${workflowId}/columns/reorder`, {
-							method: 'PATCH',
-							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({
-								orderedColumnIds: orderedColumnIds.map(id => parseInt(id))
-							}),
+						await boardService.reorderColumns(parseInt(workflowId), {
+							orderedColumnIds: orderedColumnIds.map(id => parseInt(id))
 						});
+						console.log('[API SUCCESS] Columns reordered');
 						break;
 					}
 
@@ -388,14 +378,12 @@ export default function BoardExample() {
 						const { columnId } = outcome;
 						const column = columnMap[columnId];
 						
-						// Sử dụng trường 'id' từ item (database ID thực tế)
 						const orderedIssueIds = column.items.map(item => item.id);
 
-						response = await fetch(`/api/issues/status/${columnId}/cards/reorder`, {
-							method: 'PATCH',
-							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({ orderedIssueIds }),
+						await boardService.reorderCards(parseInt(columnId), {
+							orderedIssueIds
 						});
+						console.log('[API SUCCESS] Cards reordered');
 						break;
 					}
 
@@ -405,35 +393,23 @@ export default function BoardExample() {
 						const destinationColumn = columnMap[finishColumnId];
 						const movedCard = destinationColumn.items[itemIndexInFinishColumn];
 						
-						// Sử dụng trường 'id' từ movedCard (database ID thực tế)
 						const movedCardId = movedCard.id;
 
-						response = await fetch(`/api/issues/card/${movedCardId}/move`, {
-							method: 'PATCH',
-							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({
-								targetStatusId: parseInt(finishColumnId),
-								targetIndex: itemIndexInFinishColumn,
-							}),
+						await boardService.moveCard(movedCardId, {
+							targetStatusId: parseInt(finishColumnId),
+							targetIndex: itemIndexInFinishColumn,
 						});
+						console.log('[API SUCCESS] Card moved');
 						break;
 					}
 
 					default:
 						return;
 				}
-
-				if (!response.ok) {
-					const errorData = await response.json();
-					console.error('[API ERROR]', errorData);
-					// Có thể thêm logic rollback hoặc hiển thị error cho user
-				} else {
-					const result = await response.json();
-					console.log('[API SUCCESS]', result);
-				}
 			} catch (error) {
 				console.error('[API CALL FAILED]', error);
-				// Có thể thêm logic rollback hoặc retry
+				message.error('Không thể đồng bộ với server');
+				// TODO: Implement rollback logic
 			}
 		};
 
@@ -577,24 +553,24 @@ export default function BoardExample() {
 		};
 	}, [getColumns, reorderColumn, reorderCard, registry, moveCard, instanceId]);
 
-	// Hiển thị loading state
+	// Loading state
 	if (loading) {
 		return <div>Loading board data...</div>;
 	}
 
-	// Hiển thị error state
+	// Error state
 	if (error) {
 		return <div>Error: {error}</div>;
 	}
 
-	// Kiểm tra data có tồn tại không
+	// No data state
 	if (!data) {
 		return <div>No data available</div>;
 	}
 
 	return (
 		<BoardContext.Provider value={contextValue}>
-			<Button onClick={() => setIsCreateModalOpen(true)}>Create</Button>
+			<Button onClick={() => setIsCreateModalOpen(true)}>Create Issue</Button>
 			<Board>
 				{data.orderedColumnIds.map((columnId) => {
 					return <Column column={data.columnMap[columnId]} key={columnId} />;

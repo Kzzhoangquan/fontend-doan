@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Select, message } from 'antd';
-import axios from 'axios';
+import { issueService, IssueType, WorkflowStatus } from '@/lib/api/services/issue.service';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -11,17 +11,6 @@ interface CreateIssueModalProps {
 	onSuccess: (issue: any) => void;
 	projectId: number; // Thêm projectId để lọc data
 }
-
-type IssueType = {
-	id: number;
-	type_name: string;
-};
-
-type WorkflowStatus = {
-	id: number;
-	status_name: string;
-	status_category: string | null;
-};
 
 export const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
 	visible,
@@ -40,8 +29,8 @@ export const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
 	const fetchIssueTypes = async () => {
 		try {
 			setLoadingTypes(true);
-			const response = await axios.get('/api/issues/types');
-			setIssueTypes(response.data);
+			const data = await issueService.getIssueTypes();
+			setIssueTypes(data);
 		} catch (error) {
 			console.error('Error fetching issue types:', error);
 			message.error('Không thể tải danh sách loại issue');
@@ -54,10 +43,8 @@ export const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
 	const fetchStatuses = async (workflowId: number) => {
 		try {
 			setLoadingStatuses(true);
-			const response = await axios.get('/api/issues/statuses', {
-				params: { workflowId },
-			});
-			setStatuses(response.data);
+			const data = await issueService.getWorkflowStatuses(workflowId);
+			setStatuses(data);
 		} catch (error) {
 			console.error('Error fetching statuses:', error);
 			message.error('Không thể tải danh sách trạng thái');
@@ -87,13 +74,14 @@ export const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
 				current_status_id: values.current_status_id,
 				summary: values.summary,
 				reporter_id: 1, // Thay bằng user hiện tại
+				issue_code: '', // Issue code sẽ được tạo tự động ở backend
 			};
 
 			// Call API to create issue
-			const response = await axios.post('/api/issues', createData);
+			const data = await issueService.create(createData);
 
 			message.success('Tạo issue thành công!');
-			onSuccess(response.data);
+			onSuccess(data);
 			form.resetFields();
 			onClose();
 		} catch (error) {

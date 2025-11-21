@@ -17,7 +17,7 @@ import {
     EditOutlined,
     DeleteOutlined,
 } from '@ant-design/icons';
-import axios from 'axios';
+import { issueService, IssueComment } from '@/lib/api/services/issue.service';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/vi';
@@ -61,8 +61,8 @@ export const IssueComments: React.FC<IssueCommentsProps> = ({
     const fetchComments = async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`/api/issues/${issueId}/comments`);
-            setComments(response.data);
+            const data = await issueService.getComments(issueId);
+            setComments(data);
         } catch (error) {
             console.error('Error fetching comments:', error);
             message.error('Không thể tải danh sách comment');
@@ -80,10 +80,7 @@ export const IssueComments: React.FC<IssueCommentsProps> = ({
 
         try {
             setSubmitting(true);
-            await axios.post(`/api/issues/${issueId}/comments`, {
-                employee_id: currentEmployeeId,
-                content: newComment,
-            });
+            await issueService.createComment(issueId, currentEmployeeId, newComment);
             message.success('Đã thêm comment');
             setNewComment('');
             fetchComments();
@@ -103,9 +100,7 @@ export const IssueComments: React.FC<IssueCommentsProps> = ({
         }
 
         try {
-            await axios.patch(`/api/issues/${issueId}/comments/${commentId}`, {
-                content: editContent,
-            });
+            await issueService.updateComment(issueId, commentId, editContent);
             message.success('Đã cập nhật comment');
             setEditingId(null);
             setEditContent('');
@@ -119,7 +114,7 @@ export const IssueComments: React.FC<IssueCommentsProps> = ({
     // Delete comment
     const handleDeleteComment = async (commentId: number) => {
         try {
-            await axios.delete(`/api/issues/${issueId}/comments/${commentId}`);
+            await issueService.deleteComment(issueId, commentId);
             message.success('Đã xóa comment');
             fetchComments();
         } catch (error) {

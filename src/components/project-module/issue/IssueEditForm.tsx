@@ -17,7 +17,8 @@ import {
     TagOutlined,
     SaveOutlined,
 } from '@ant-design/icons';
-import axios from 'axios';
+import { issueService, Issue, IssueType, WorkflowStatus, Employee } from '@/lib/api/services/issue.service';
+import { epicService } from '@/lib/api/services/epic.service';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -54,27 +55,12 @@ export type IssueDetail = {
     };
 };
 
-type IssueType = {
-    id: number;
-    type_name: string;
-};
 
 type Epic = {
     id: number;
     epic_name: string;
 };
 
-type WorkflowStatus = {
-    id: number;
-    status_name: string;
-    status_category: string | null;
-};
-
-type Employee = {
-    id: number;
-    full_name: string;
-    email: string;
-};
 
 type IssueEditFormProps = {
     issueId: number;
@@ -100,8 +86,7 @@ export const IssueEditForm: React.FC<IssueEditFormProps> = ({
     const fetchIssueDetail = async (id: number) => {
         try {
             setLoading(true);
-            const response = await axios.get(`/api/issues/${id}`);
-            const issueData = response.data;
+            const issueData = await issueService.getById(id);
             setIssue(issueData);
 
             // Set form values
@@ -129,26 +114,19 @@ export const IssueEditForm: React.FC<IssueEditFormProps> = ({
     // Fetch reference data
     const fetchReferenceData = async () => {
         try {
-            const [typesRes, employeesRes] = await Promise.all([
-                axios.get('/api/issues/types'),
-                axios.get('/api/issues/employees', {
-                    params: { projectId: issue?.project_id || 1 },
-                }),
-            ]);
+            const types = await issueService.getIssueTypes();
+            const employees = await issueService.getProjectEmployees(issue?.project_id || 1);
 
-            setIssueTypes(typesRes.data);
-            setEmployees(employeesRes.data);
+            setIssueTypes(types);
+            setEmployees(employees);
 
             if (issue?.project_id) {
-                const epicsRes = await axios.get('/api/issues/epics', {
-                    params: { projectId: issue.project_id },
-                });
-                setEpics(epicsRes.data);
+                const epics = await epicService.getAll({ projectId: issue.project_id });
+                setEpics(epics);
 
-                const statusesRes = await axios.get('/api/issues/statuses', {
-                    params: { workflowId: 1 },
-                });
-                setStatuses(statusesRes.data);
+                const statuses = await issueService.getWorkflowStatuses(1);
+
+                setStatuses(statuses);
             }
         } catch (error) {
             console.error('Error fetching reference data:', error);
@@ -169,7 +147,7 @@ export const IssueEditForm: React.FC<IssueEditFormProps> = ({
                     : null,
             };
 
-            await axios.patch(`/api/issues/${issueId}`, submitData);
+            await issueService.update(issueId, submitData);
 
             message.success('Cập nhật issue thành công!');
             onSuccess?.();

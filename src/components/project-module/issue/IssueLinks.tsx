@@ -18,7 +18,7 @@ import {
     PlusOutlined,
     SearchOutlined,
 } from '@ant-design/icons';
-import axios from 'axios';
+import { issueService, IssueLinksData } from '@/lib/api/services/issue.service';
 
 const { Option } = Select;
 const { Text } = Typography;
@@ -35,10 +35,6 @@ type LinkedIssue = {
     };
 };
 
-type IssueLinksData = {
-    outgoing: LinkedIssue[];
-    incoming: LinkedIssue[];
-};
 
 type Issue = {
     id: number;
@@ -81,8 +77,8 @@ export const IssueLinks: React.FC<IssueLinksProps> = ({ issueId, projectId = 1 }
     const fetchLinks = async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`/api/issues/${issueId}/links`);
-            setLinks(response.data);
+            const data = await issueService.getLinks(issueId);
+            setLinks(data);
         } catch (error) {
             console.error('Error fetching links:', error);
             message.error('Không thể tải danh sách links');
@@ -100,16 +96,15 @@ export const IssueLinks: React.FC<IssueLinksProps> = ({ issueId, projectId = 1 }
 
         try {
             setSearchLoading(true);
-            const response = await axios.get('/api/issues', {
-                params: { search: term, projectId },
-            });
+            const data = await issueService.getAll({ search: term, projectId });
+
             // Filter out current issue and already linked issues
             const linkedIssueIds = [
                 ...links.outgoing.map((l) => l.issue.id),
                 ...links.incoming.map((l) => l.issue.id),
                 issueId,
             ];
-            const filtered = response.data.filter(
+            const filtered = data.filter(
                 (issue: Issue) => !linkedIssueIds.includes(issue.id)
             );
             setAvailableIssues(filtered);
@@ -130,10 +125,7 @@ export const IssueLinks: React.FC<IssueLinksProps> = ({ issueId, projectId = 1 }
 
         try {
             setAdding(true);
-            await axios.post(`/api/issues/${issueId}/links`, {
-                target_issue_id: selectedIssueId,
-                link_type: selectedLinkType,
-            });
+            await issueService.createLink(issueId, selectedIssueId, selectedLinkType);
             message.success('Đã thêm link');
             setSelectedIssueId(null);
             setSearchTerm('');
@@ -154,7 +146,7 @@ export const IssueLinks: React.FC<IssueLinksProps> = ({ issueId, projectId = 1 }
     // Remove link
     const handleRemoveLink = async (linkId: number) => {
         try {
-            await axios.delete(`/api/issues/${issueId}/links/${linkId}`);
+            await issueService.deleteLink(issueId, linkId);
             message.success('Đã xóa link');
             fetchLinks();
         } catch (error) {
