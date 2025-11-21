@@ -14,11 +14,13 @@ import {
   Phone, 
   Briefcase, 
   Loader2,
-  X
+  X,
+  Shield
 } from 'lucide-react';
 import { employeeService, Employee } from '@/lib/api/services/employee.service';
 import { departmentService, Department } from '@/lib/api/services/department.service';
 import { positionService, Position } from '@/lib/api/services/position.service';
+import { roleService, Role } from '@/lib/api/services/role.service';
 import { useAuth } from '@/hooks/useAuth';
 import { UserRole } from '@/lib/constants/roles';
 
@@ -41,7 +43,11 @@ export default function EmployeesPage() {
   const [formError, setFormError] = useState('');
   const [departments, setDepartments] = useState<Department[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(false);
+  const [assignRolesModalOpen, setAssignRolesModalOpen] = useState(false);
+  const [assigningRoles, setAssigningRoles] = useState(false);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([]);
   const [formData, setFormData] = useState<Partial<Employee>>({
     full_name: '',
     username: '',
@@ -92,15 +98,17 @@ export default function EmployeesPage() {
   const fetchReferenceOptions = async () => {
     setOptionsLoading(true);
     try {
-      const [deptRes, posRes] = await Promise.all([
+      const [deptRes, posRes, rolesRes] = await Promise.all([
         departmentService.getAll({ pageSize: 100 }),
         positionService.getAll({ pageSize: 100 }),
+        roleService.getAll({ pageSize: 100 }),
       ]);
       setDepartments(deptRes.data);
       setPositions(posRes.data);
+      setRoles(rolesRes.data);
     } catch (err: any) {
       console.error('Error loading reference data:', err);
-      showNotification('error', 'Không thể tải danh sách phòng ban / vị trí', err.response?.data?.message);
+      showNotification('error', 'Không thể tải danh sách phòng ban / vị trí / quyền', err.response?.data?.message);
     } finally {
       setOptionsLoading(false);
     }
@@ -152,6 +160,7 @@ export default function EmployeesPage() {
 
   // Check permission
   const canManage = hasRole(UserRole.MANAGER) || hasRole(UserRole.SUPER_ADMIN);
+  const canAssignRoles = hasRole(UserRole.SUPER_ADMIN);
 
   const openCreateModal = () => {
     setModalMode('create');
@@ -167,6 +176,10 @@ export default function EmployeesPage() {
       password: '',
     });
     setFormError('');
+    // Đảm bảo load lại danh sách departments và positions khi mở modal
+    if (departments.length === 0 || positions.length === 0) {
+      fetchReferenceOptions();
+    }
   };
 
   const openEditModal = async (employeeId: number) => {
@@ -212,6 +225,50 @@ export default function EmployeesPage() {
     setModalMode(null);
     setSelectedEmployee(null);
     setFormError('');
+  };
+
+  const openAssignRolesModal = async (employeeId: number) => {
+    try {
+      setAssigningRoles(true);
+      const employee = await employeeService.getById(employeeId);
+      setSelectedEmployee(employee);
+      setSelectedRoleIds(employee.roles?.map(r => r.id) || []);
+      setAssignRolesModalOpen(true);
+    } catch (err: any) {
+      showNotification('error', 'Không thể tải thông tin nhân viên', err.response?.data?.message);
+    } finally {
+      setAssigningRoles(false);
+    }
+  };
+
+  const closeAssignRolesModal = () => {
+    setAssignRolesModalOpen(false);
+    setSelectedEmployee(null);
+    setSelectedRoleIds([]);
+  };
+
+  const handleRoleToggle = (roleId: number) => {
+    setSelectedRoleIds(prev => 
+      prev.includes(roleId)
+        ? prev.filter(id => id !== roleId)
+        : [...prev, roleId]
+    );
+  };
+
+  const handleAssignRoles = async () => {
+    if (!selectedEmployee) return;
+
+    try {
+      setAssigningRoles(true);
+      await employeeService.assignRoles(selectedEmployee.id, selectedRoleIds);
+      showNotification('success', 'Gán quyền thành công!');
+      closeAssignRolesModal();
+      fetchEmployees();
+    } catch (err: any) {
+      showNotification('error', 'Không thể gán quyền', err.response?.data?.message);
+    } finally {
+      setAssigningRoles(false);
+    }
   };
 
   const handleFormChange = (field: keyof Employee, value: string) => {
@@ -420,12 +477,23 @@ export default function EmployeesPage() {
                             <button
                               onClick={() => openEditModal(emp.id)}
                               className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                              title="Chỉnh sửa"
                             >
                               <Edit className="w-4 h-4" />
                             </button>
+                            {canAssignRoles && (
+                              <button
+                                onClick={() => openAssignRolesModal(emp.id)}
+                                className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                                title="Gán quyền"
+                              >
+                                <Shield className="w-4 h-4" />
+                              </button>
+                            )}
                             <button
                               onClick={() => handleDelete(emp.id, emp.full_name)}
                               className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Xóa"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -663,6 +731,89 @@ export default function EmployeesPage() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Gán Quyền */}
+      {assignRolesModalOpen && selectedEmployee && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Gán quyền cho nhân viên</h2>
+                <p className="text-sm text-gray-500 mt-1">{selectedEmployee.full_name}</p>
+              </div>
+              <button
+                onClick={closeAssignRolesModal}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {assigningRoles && !selectedEmployee ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600 mb-4">
+                    Chọn các quyền bạn muốn gán cho nhân viên này:
+                  </p>
+                  
+                  {roles.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      Không có quyền nào trong hệ thống
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {roles.map((role) => (
+                        <label
+                          key={role.id}
+                          className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedRoleIds.includes(role.id)}
+                            onChange={() => handleRoleToggle(role.id)}
+                            className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-gray-900">{role.name}</p>
+                              <span className="text-xs text-gray-500">({role.code})</span>
+                            </div>
+                            {role.description && (
+                              <p className="text-sm text-gray-500 mt-1">{role.description}</p>
+                            )}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end gap-3 pt-4 border-t">
+                    <button
+                      type="button"
+                      onClick={closeAssignRolesModal}
+                      className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      onClick={handleAssignRoles}
+                      disabled={assigningRoles}
+                      className="px-6 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors disabled:opacity-60 flex items-center gap-2"
+                    >
+                      {assigningRoles && <Loader2 className="w-4 h-4 animate-spin" />}
+                      Lưu quyền
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -11,6 +11,7 @@ import {
   Settings,
   Home,
   CheckSquare,
+  Briefcase,
 } from 'lucide-react';
 
 export interface MenuItem {
@@ -54,6 +55,12 @@ export const MENU_ITEMS: MenuItem[] = [
         roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN],
       },
       {
+        label: 'Vị trí',
+        icon: Briefcase,
+        href: ROUTES.DASHBOARD.HR.POSITIONS,
+        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN],
+      },
+      {
         label: 'Tài sản',
         icon: Package,
         href: ROUTES.DASHBOARD.HR.ASSETS,
@@ -69,7 +76,7 @@ export const MENU_ITEMS: MenuItem[] = [
         label: 'Công ca',
         icon: Calendar,
         href: ROUTES.DASHBOARD.HR.ATTENDANCE,
-        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN],
+        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN, UserRole.EMPLOYEE],
       },
       {
         label: 'Yêu cầu',
@@ -78,6 +85,12 @@ export const MENU_ITEMS: MenuItem[] = [
         roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN],
       },
     ],
+  },
+  {
+    label: 'Chấm công',
+    icon: Calendar,
+    href: ROUTES.DASHBOARD.HR.ATTENDANCE,
+    roles: [UserRole.EMPLOYEE],
   },
   {
     label: 'Quản lý dự án',

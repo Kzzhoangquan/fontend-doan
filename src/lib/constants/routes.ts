@@ -15,6 +15,7 @@ export const ROUTES = {
     HR: {
       EMPLOYEES: '/dashboard/hr/employees',
       DEPARTMENTS: '/dashboard/hr/departments',
+      POSITIONS: '/dashboard/hr/positions',
       ASSETS: '/dashboard/hr/assets',
       ASSET_ASSIGNMENT: '/dashboard/hr/asset-assignment',
       ATTENDANCE: '/dashboard/hr/attendance',

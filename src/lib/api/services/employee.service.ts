@@ -94,4 +94,22 @@ export const employeeService = {
   delete: async (id: number): Promise<void> => {
     await api.delete(`/employees/${id}`);
   },
+
+  /**
+   * Gán roles cho nhân viên
+   */
+  assignRoles: async (id: number, roleIds: number[]): Promise<Employee> => {
+    const response = await api.post<Employee>(`/employees/${id}/roles`, { role_ids: roleIds });
+    return response.data;
+  },
+
+  /**
+   * Xóa roles khỏi nhân viên
+   */
+  removeRoles: async (id: number, roleIds: number[]): Promise<Employee> => {
+    const response = await api.delete<Employee>(`/employees/${id}/roles`, {
+      data: { role_ids: roleIds },
+    });
+    return response.data;
+  },
 };
