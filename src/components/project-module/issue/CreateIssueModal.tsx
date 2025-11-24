@@ -84,6 +84,9 @@ export const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
 			onSuccess(data);
 			form.resetFields();
 			onClose();
+			setTimeout(() => {
+				window.location.reload();
+			}, 500);
 		} catch (error) {
 			console.error('Error creating issue:', error);
 			message.error('Không thể tạo issue');

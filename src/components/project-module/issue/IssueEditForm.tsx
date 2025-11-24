@@ -151,6 +151,9 @@ export const IssueEditForm: React.FC<IssueEditFormProps> = ({
 
             message.success('Cập nhật issue thành công!');
             onSuccess?.();
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
         } catch (error) {
             console.error('Error updating issue:', error);
             message.error('Không thể cập nhật issue');

@@ -18,8 +18,8 @@ import {
     MoreOutlined,
     EditOutlined,
     DeleteOutlined,
+    ReloadOutlined,
 } from '@ant-design/icons';
-import axios from 'axios';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { SprintFormModal } from './SprintFormModal';
 import { SprintIssueCard } from './SprintIssueCard';
@@ -27,6 +27,7 @@ import { IssueEditModal } from '../issue/IssueEditModal';
 import { CreateIssueModal } from '../issue/CreateIssueModal';
 import { Issue, Sprint } from './sprint.types';
 import { sprintService } from '@/lib/api/services/sprint.service';
+import { SprintBacklogFilter, SprintFilterValues, useFilteredSprintData } from './SprintBacklogFilter';
 
 const { Title, Text } = Typography;
 
@@ -44,6 +45,14 @@ export const SprintBacklog: React.FC<SprintBacklogProps> = ({ projectId }) => {
     const [editingIssueId, setEditingIssueId] = useState<number | null>(null);
     const [issueEditModalVisible, setIssueEditModalVisible] = useState(false);
     const [createIssueModalVisible, setCreateIssueModalVisible] = useState(false);
+
+    // Filter state
+    const [filters, setFilters] = useState<SprintFilterValues>({
+        search: '',
+        assigneeIds: [],
+        issueTypeIds: [],
+        epicIds: [],
+    });
 
     // Fetch sprints and issues
     const fetchData = async () => {
@@ -78,6 +87,18 @@ export const SprintBacklog: React.FC<SprintBacklogProps> = ({ projectId }) => {
             fetchData();
         }
     }, [projectId]);
+
+    // Handle filter change
+    const handleFilterChange = (newFilters: SprintFilterValues) => {
+        setFilters(newFilters);
+    };
+
+    // Apply filters
+    const { filteredBacklog, filteredSprintIssues, totalIssues, filteredCount } = useFilteredSprintData(
+        backlogIssues,
+        sprintIssues,
+        filters
+    );
 
     // Handle drag and drop
     const handleDragEnd = async (result: DropResult) => {
@@ -182,6 +203,11 @@ export const SprintBacklog: React.FC<SprintBacklogProps> = ({ projectId }) => {
         fetchData();
     };
 
+    // Handle refresh
+    const handleRefresh = () => {
+        fetchData();
+    };
+
     return (
         <div style={{ padding: '24px' }}>
             <Spin spinning={loading}>
@@ -192,6 +218,13 @@ export const SprintBacklog: React.FC<SprintBacklogProps> = ({ projectId }) => {
                             <RocketOutlined /> Sprint Backlog
                         </Title>
                         <Space>
+                            <Button
+                                icon={<ReloadOutlined />}
+                                onClick={handleRefresh}
+                                loading={loading}
+                            >
+                                Làm mới
+                            </Button>
                             <Button
                                 type="default"
                                 icon={<PlusOutlined />}
@@ -212,13 +245,24 @@ export const SprintBacklog: React.FC<SprintBacklogProps> = ({ projectId }) => {
                         </Space>
                     </div>
 
+                    {/* Filter Component */}
+                    <SprintBacklogFilter
+                        projectId={projectId}
+                        onFilterChange={handleFilterChange}
+                        totalIssues={totalIssues}
+                        filteredCount={filteredCount}
+                    />
+
                     <DragDropContext onDragEnd={handleDragEnd}>
                         {/* Backlog */}
                         <Card
                             title={
                                 <Space>
                                     <Text strong>Backlog</Text>
-                                    <Tag>{backlogIssues.length}</Tag>
+                                    <Tag>{filteredBacklog.length}</Tag>
+                                    {filters.search || filters.assigneeIds.length > 0 || filters.issueTypeIds.length > 0 || filters.epicIds.length > 0 ? (
+                                        <Tag color="orange">/ {backlogIssues.length} tổng</Tag>
+                                    ) : null}
                                 </Space>
                             }
                             style={{ marginBottom: 16 }}
@@ -235,10 +279,16 @@ export const SprintBacklog: React.FC<SprintBacklogProps> = ({ projectId }) => {
                                             padding: 8,
                                         }}
                                     >
-                                        {backlogIssues.length === 0 ? (
-                                            <Empty description="No issues in backlog" />
+                                        {filteredBacklog.length === 0 ? (
+                                            <Empty 
+                                                description={
+                                                    backlogIssues.length === 0 
+                                                        ? "No issues in backlog" 
+                                                        : "Không có issue nào phù hợp với bộ lọc"
+                                                } 
+                                            />
                                         ) : (
-                                            backlogIssues.map((issue, index) => (
+                                            filteredBacklog.map((issue, index) => (
                                                 <Draggable
                                                     key={`issue-${issue.id}`}
                                                     draggableId={`issue-${issue.id}`}
@@ -267,118 +317,133 @@ export const SprintBacklog: React.FC<SprintBacklogProps> = ({ projectId }) => {
                         </Card>
 
                         {/* Sprints */}
-                        {sprints.map((sprint) => (
-                            <Card
-                                key={sprint.id}
-                                title={
-                                    <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                                        <Space>
-                                            <Text strong>{sprint.sprint_name}</Text>
-                                            <Tag color={getStatusColor(sprint.status)}>
-                                                {sprint.status}
-                                            </Tag>
-                                            <Tag>{sprintIssues[sprint.id]?.length || 0} issues</Tag>
-                                        </Space>
-                                        <Space>
-                                            {sprint.status === 'planning' && (
-                                                <Button
-                                                    type="primary"
-                                                    size="small"
-                                                    icon={<RocketOutlined />}
-                                                    onClick={() => handleStartSprint(sprint.id)}
-                                                >
-                                                    Start Sprint
-                                                </Button>
-                                            )}
-                                            {sprint.status === 'active' && (
-                                                <Button
-                                                    type="primary"
-                                                    size="small"
-                                                    icon={<CheckCircleOutlined />}
-                                                    onClick={() => handleCompleteSprint(sprint.id)}
-                                                >
-                                                    Complete
-                                                </Button>
-                                            )}
-                                            <Dropdown
-                                                overlay={
-                                                    <Menu>
-                                                        <Menu.Item
-                                                            key="edit"
-                                                            icon={<EditOutlined />}
-                                                            onClick={() => {
-                                                                setEditingSprint(sprint);
-                                                                setFormModalVisible(true);
-                                                            }}
-                                                        >
-                                                            Edit
-                                                        </Menu.Item>
-                                                        <Menu.Item
-                                                            key="delete"
-                                                            danger
-                                                            icon={<DeleteOutlined />}
-                                                            onClick={() => handleDeleteSprint(sprint.id)}
-                                                        >
-                                                            Delete
-                                                        </Menu.Item>
-                                                    </Menu>
-                                                }
-                                            >
-                                                <Button size="small" icon={<MoreOutlined />} />
-                                            </Dropdown>
-                                        </Space>
-                                    </Space>
-                                }
-                                style={{ marginBottom: 16 }}
-                            >
-                                {sprint.goal && (
-                                    <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
-                                        Goal: {sprint.goal}
-                                    </Text>
-                                )}
-                                <Droppable droppableId={`sprint-${sprint.id}`}>
-                                    {(provided, snapshot) => (
-                                        <div
-                                            ref={provided.innerRef}
-                                            {...provided.droppableProps}
-                                            style={{
-                                                minHeight: 100,
-                                                background: snapshot.isDraggingOver ? '#f0f5ff' : 'transparent',
-                                                borderRadius: 4,
-                                                padding: 8,
-                                            }}
-                                        >
-                                            {(!sprintIssues[sprint.id] || sprintIssues[sprint.id].length === 0) ? (
-                                                <Empty description="No issues in this sprint" />
-                                            ) : (
-                                                sprintIssues[sprint.id].map((issue, index) => (
-                                                    <Draggable
-                                                        key={`issue-${issue.id}`}
-                                                        draggableId={`issue-${issue.id}`}
-                                                        index={index}
+                        {sprints.map((sprint) => {
+                            const sprintFilteredIssues = filteredSprintIssues[sprint.id] || [];
+                            const sprintTotalIssues = sprintIssues[sprint.id]?.length || 0;
+                            const hasFilter = filters.search || filters.assigneeIds.length > 0 || filters.issueTypeIds.length > 0 || filters.epicIds.length > 0;
+
+                            return (
+                                <Card
+                                    key={sprint.id}
+                                    title={
+                                        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                                            <Space>
+                                                <Text strong>{sprint.sprint_name}</Text>
+                                                <Tag color={getStatusColor(sprint.status)}>
+                                                    {sprint.status}
+                                                </Tag>
+                                                <Tag>{sprintFilteredIssues.length} issues</Tag>
+                                                {hasFilter && sprintTotalIssues !== sprintFilteredIssues.length && (
+                                                    <Tag color="orange">/ {sprintTotalIssues} tổng</Tag>
+                                                )}
+                                            </Space>
+                                            <Space>
+                                                {sprint.status === 'planning' && (
+                                                    <Button
+                                                        type="primary"
+                                                        size="small"
+                                                        icon={<RocketOutlined />}
+                                                        onClick={() => handleStartSprint(sprint.id)}
                                                     >
-                                                        {(provided, snapshot) => (
-                                                            <div
-                                                                ref={provided.innerRef}
-                                                                {...provided.draggableProps}
-                                                                {...provided.dragHandleProps}
+                                                        Start Sprint
+                                                    </Button>
+                                                )}
+                                                {sprint.status === 'active' && (
+                                                    <Button
+                                                        type="primary"
+                                                        size="small"
+                                                        icon={<CheckCircleOutlined />}
+                                                        onClick={() => handleCompleteSprint(sprint.id)}
+                                                    >
+                                                        Complete
+                                                    </Button>
+                                                )}
+                                                <Dropdown
+                                                    overlay={
+                                                        <Menu>
+                                                            <Menu.Item
+                                                                key="edit"
+                                                                icon={<EditOutlined />}
+                                                                onClick={() => {
+                                                                    setEditingSprint(sprint);
+                                                                    setFormModalVisible(true);
+                                                                }}
                                                             >
-                                                                <SprintIssueCard
-                                                                    issue={issue}
-                                                                    isDragging={snapshot.isDragging}
-                                                                    onEdit={handleEditIssue}
-                                                                />
-                                                            </div>
-                                                        )}
-                                                    </Draggable>
-                                                ))
-                                            )}
-                                            {provided.placeholder}
-                                        </div>
+                                                                Edit
+                                                            </Menu.Item>
+                                                            <Menu.Item
+                                                                key="delete"
+                                                                danger
+                                                                icon={<DeleteOutlined />}
+                                                                onClick={() => handleDeleteSprint(sprint.id)}
+                                                            >
+                                                                Delete
+                                                            </Menu.Item>
+                                                        </Menu>
+                                                    }
+                                                >
+                                                    <Button size="small" icon={<MoreOutlined />} />
+                                                </Dropdown>
+                                            </Space>
+                                        </Space>
+                                    }
+                                    style={{ marginBottom: 16 }}
+                                >
+                                    {sprint.goal && (
+                                        <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+                                            Goal: {sprint.goal}
+                                        </Text>
                                     )}
-                                </Droppable>
-                            </Card>
-                        ))}
+                                    <Droppable droppableId={`sprint-${sprint.id}`}>
+                                        {(provided, snapshot) => (
+                                            <div
+                                                ref={provided.innerRef}
+                                                {...provided.droppableProps}
+                                                style={{
+                                                    minHeight: 100,
+                                                    background: snapshot.isDraggingOver ? '#f0f5ff' : 'transparent',
+                                                    borderRadius: 4,
+                                                    padding: 8,
+                                                }}
+                                            >
+                                                {sprintFilteredIssues.length === 0 ? (
+                                                    <Empty 
+                                                        description={
+                                                            sprintTotalIssues === 0 
+                                                                ? "No issues in this sprint" 
+                                                                : "Không có issue nào phù hợp với bộ lọc"
+                                                        } 
+                                                    />
+                                                ) : (
+                                                    sprintFilteredIssues.map((issue, index) => (
+                                                        <Draggable
+                                                            key={`issue-${issue.id}`}
+                                                            draggableId={`issue-${issue.id}`}
+                                                            index={index}
+                                                        >
+                                                            {(provided, snapshot) => (
+                                                                <div
+                                                                    ref={provided.innerRef}
+                                                                    {...provided.draggableProps}
+                                                                    {...provided.dragHandleProps}
+                                                                >
+                                                                    <SprintIssueCard
+                                                                        issue={issue}
+                                                                        isDragging={snapshot.isDragging}
+                                                                        onEdit={handleEditIssue}
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </Draggable>
+                                                    ))
+                                                )}
+                                                {provided.placeholder}
+                                            </div>
+                                        )}
+                                    </Droppable>
+                                </Card>
+                            );
+                        })}
                     </DragDropContext>
                 </Space>
             </Spin>

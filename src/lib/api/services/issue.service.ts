@@ -85,6 +85,21 @@ export interface IssueLinksData {
   incoming: IssueLink[];
 }
 
+export interface IssueChangeHistory {
+  id: number;
+  issue_id: number;
+  changer_employee_id: number;
+  change_date: string;
+  field_name: string;
+  old_value: string | null;
+  new_value: string | null;
+  changer_employee?: {
+    id: number;
+    full_name: string;
+    email: string;
+  };
+}
+
 export interface CreateIssueDto {
   project_id: number;
   issue_type_id: number;
@@ -256,5 +271,21 @@ export const issueService = {
 
   deleteLink: async (issueId: number, linkId: number): Promise<void> => {
     await api.delete(`/issues/${issueId}/links/${linkId}`);
+  },
+
+  // ============ History ============
+
+  getHistory: async (issueId: number): Promise<IssueChangeHistory[]> => {
+    const response = await api.get<IssueChangeHistory[]>(`/issues/${issueId}/history`);
+    return response.data;
+  },
+
+  // ============ Epics ============
+
+  getProjectEpics: async (projectId: number): Promise<any[]> => {
+    const response = await api.get<any[]>('/issues/epics', {
+      params: { projectId },
+    });
+    return response.data;
   },
 };

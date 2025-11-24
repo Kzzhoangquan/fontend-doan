@@ -11,7 +11,8 @@ import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine';
 import { monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { reorder } from '@atlaskit/pragmatic-drag-and-drop/reorder';
 import { useRouter, usePathname } from 'next/navigation';
-import { Button, message } from 'antd';
+import { Button, message, Space } from 'antd';
+import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 
 import { type ColumnMap, type ColumnType, type Issue } from '@/components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/data/people';
 import Board from '@/components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/board';
@@ -20,6 +21,7 @@ import { Column } from '@/components/project-module/issue/pragmatic-drag-and-dro
 import { createRegistry } from '@/components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/registry';
 import { CreateIssueModal } from '@/components/project-module/issue/CreateIssueModal';
 import { boardService } from '@/lib/api/services/board.service';
+import { BoardFilter, BoardFilterValues, useFilteredBoardData } from '../../../../../../components/project-module/issue/BoardFilter';
 
 type Outcome =
 	| {
@@ -58,52 +60,74 @@ export default function BoardExample() {
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 	const projectId = 1; // Lấy từ context hoặc props
 
-	const handleCreateIssue = (newIssue: any) => {
-		console.log('New issue created:', newIssue);
-		// Refresh board data hoặc update state
-		// Ví dụ: refetch board data
-		// fetchBoardData();
-	};
-
 	const [data, setData] = useState<BoardState | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+
+	// Filter state
+	const [filters, setFilters] = useState<BoardFilterValues>({
+		search: '',
+		assigneeIds: [],
+		issueTypeIds: [],
+		epicIds: [],
+	});
 
 	const pathname = usePathname();
 	const pathSegments = pathname.split('/');
 	const workflowId = pathSegments[pathSegments.length - 1];
 
-	// Fetch data từ API khi component mount
-	useEffect(() => {
-		const fetchBoardData = async () => {
-			try {
-				setLoading(true);
-				
-				const apiData = await boardService.getBoardByWorkflow(parseInt(workflowId));
-				
-				
-				console.log('API data:', apiData);
-				
-				// Transform API data thành format phù hợp với Board
-				// Bạn cần điều chỉnh transformation này dựa trên cấu trúc API response thực tế
-				const transformedData = {
-					columnMap: apiData.columnMap || {},
-					orderedColumnIds: apiData.orderedColumnIds || [],
-					lastOperation: null,
-				};
-				
-				setData(transformedData);
-				setError(null);
-			} catch (err) {
-				console.error('Error fetching board data:', err);
-				setError(err instanceof Error ? err.message : 'Failed to fetch data');
-			} finally {
-				setLoading(false);
-			}
-		};
+	// Fetch data từ API
+	const fetchBoardData = async () => {
+		try {
+			setLoading(true);
+			
+			const apiData = await boardService.getBoardByWorkflow(parseInt(workflowId));
+			
+			console.log('API data:', apiData);
+			
+			const transformedData = {
+				columnMap: apiData.columnMap || {},
+				orderedColumnIds: apiData.orderedColumnIds || [],
+				lastOperation: null,
+			};
+			
+			setData(transformedData);
+			setError(null);
+		} catch (err) {
+			console.error('Error fetching board data:', err);
+			setError(err instanceof Error ? err.message : 'Failed to fetch data');
+		} finally {
+			setLoading(false);
+		}
+	};
 
+	// Fetch data khi component mount
+	useEffect(() => {
 		fetchBoardData();
-	}, []);
+	}, [workflowId]);
+
+	// Handle create issue success
+	const handleCreateIssue = (newIssue: any) => {
+		console.log('New issue created:', newIssue);
+		// Refresh board data
+		fetchBoardData();
+	};
+
+	// Handle refresh
+	const handleRefresh = () => {
+		fetchBoardData();
+	};
+
+	// Handle filter change
+	const handleFilterChange = (newFilters: BoardFilterValues) => {
+		setFilters(newFilters);
+	};
+
+	// Apply filters to data
+	const { filteredData, totalIssues, filteredCount } = useFilteredBoardData(data, filters);
+
+	// Use filtered data for display, original data for drag operations
+	const displayData = filteredData;
 
 	const stableData = useRef(data);
 	useEffect(() => {
@@ -365,7 +389,6 @@ export default function BoardExample() {
 			try {
 				switch (outcome.type) {
 					case 'column-reorder': {
-						// API 1: Reorder Columns
 						await boardService.reorderColumns(parseInt(workflowId), {
 							orderedColumnIds: orderedColumnIds.map(id => parseInt(id))
 						});
@@ -374,7 +397,6 @@ export default function BoardExample() {
 					}
 
 					case 'card-reorder': {
-						// API 2: Reorder Cards in Same Column
 						const { columnId } = outcome;
 						const column = columnMap[columnId];
 						
@@ -388,7 +410,6 @@ export default function BoardExample() {
 					}
 
 					case 'card-move': {
-						// API 3: Move Card to Different Column
 						const { finishColumnId, itemIndexInFinishColumn } = outcome;
 						const destinationColumn = columnMap[finishColumnId];
 						const movedCard = destinationColumn.items[itemIndexInFinishColumn];
@@ -409,7 +430,6 @@ export default function BoardExample() {
 			} catch (error) {
 				console.error('[API CALL FAILED]', error);
 				message.error('Không thể đồng bộ với server');
-				// TODO: Implement rollback logic
 			}
 		};
 
@@ -564,19 +584,49 @@ export default function BoardExample() {
 	}
 
 	// No data state
-	if (!data) {
+	if (!data || !displayData) {
 		return <div>No data available</div>;
 	}
 
 	return (
 		<BoardContext.Provider value={contextValue}>
-			<Button onClick={() => setIsCreateModalOpen(true)}>Create Issue</Button>
+			{/* Header với Filter và Actions */}
+			<div style={{ marginBottom: 16 }}>
+				{/* Action Buttons */}
+				<Space style={{ marginBottom: 12 }}>
+					<Button 
+						type="primary" 
+						icon={<PlusOutlined />}
+						onClick={() => setIsCreateModalOpen(true)}
+					>
+						Tạo Issue
+					</Button>
+					<Button 
+						icon={<ReloadOutlined />}
+						onClick={handleRefresh}
+						loading={loading}
+					>
+						Làm mới
+					</Button>
+				</Space>
+
+				{/* Filter Component */}
+				<BoardFilter
+					projectId={projectId}
+					onFilterChange={handleFilterChange}
+					totalIssues={totalIssues}
+					filteredCount={filteredCount}
+				/>
+			</div>
+
+			{/* Board */}
 			<Board>
-				{data.orderedColumnIds.map((columnId) => {
-					return <Column column={data.columnMap[columnId]} key={columnId} />;
+				{displayData.orderedColumnIds.map((columnId: any) => {
+					return <Column column={displayData.columnMap[columnId]} key={columnId} />;
 				})}
 			</Board>
 			
+			{/* Create Issue Modal */}
 			<CreateIssueModal
 				visible={isCreateModalOpen}
 				onClose={() => setIsCreateModalOpen(false)}
