@@ -1,11 +1,12 @@
+// src/components/layout/Sidebar.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { MENU_ITEMS } from '@/lib/constants/menu';
-import { ChevronDown, ChevronRight, ChevronLeft } from 'lucide-react';
+import { MENU_ITEMS, MenuItem } from '@/lib/constants/menu';
+import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -16,107 +17,153 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
-  const { hasAnyRole } = useAuth();
-  const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const { hasAnyRole, user } = useAuth();
+  const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
+  
+  // ✅ State để delay hiển thị text sau khi sidebar mở
+  const [showText, setShowText] = useState(!isCollapsed);
 
-  const toggleExpand = (label: string) => {
-    if (isCollapsed) return;
-    setExpandedItems(prev =>
-      prev.includes(label)
-        ? prev.filter(item => item !== label)
-        : [...prev, label]
-    );
-  };
-
-  const isActive = (href: string) => {
-    return pathname === href || pathname.startsWith(href + '/');
-  };
-
-  const renderMenuItem = (item: typeof MENU_ITEMS[0], depth = 0) => {
-    // CHECK ROLE - Nếu user không có quyền thì không hiển thị
-    if (!hasAnyRole(item.roles)) return null;
-
-    const hasChildren = item.children && item.children.length > 0;
-    const isExpanded = expandedItems.includes(item.label);
-    const active = isActive(item.href);
-
-    // Nếu có children, filter children theo role
-    let filteredChildren = item.children;
-    if (hasChildren) {
-      filteredChildren = item.children!.filter(child => hasAnyRole(child.roles));
-      // Nếu không có children nào hợp lệ, không hiển thị parent
-      if (filteredChildren.length === 0) return null;
+  // ✅ Delay text: ẩn ngay khi collapse, hiện sau 150ms khi expand
+  useEffect(() => {
+    if (isCollapsed) {
+      setShowText(false);
+    } else {
+      const timer = setTimeout(() => setShowText(true), 150);
+      return () => clearTimeout(timer);
     }
+  }, [isCollapsed]);
+
+  // Auto expand menu có active item
+  useEffect(() => {
+    const keysToExpand: string[] = [];
+    const findActiveParents = (items: MenuItem[], parentKeys: string[] = []) => {
+      items.forEach(item => {
+        const currentKeys = [...parentKeys, item.href];
+        if (pathname === item.href || pathname.startsWith(item.href + '/')) {
+          keysToExpand.push(...parentKeys);
+        }
+        if (item.children) findActiveParents(item.children, currentKeys);
+      });
+    };
+    findActiveParents(MENU_ITEMS);
+    setExpandedKeys(prev => [...new Set([...prev, ...keysToExpand])]);
+  }, [pathname]);
+
+  const toggleExpand = (key: string) => {
+    if (isCollapsed) return;
+    setExpandedKeys(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+  };
+
+  const isActive = (href: string) => pathname === href;
+  
+  const isParentOfActive = (item: MenuItem): boolean => {
+    if (isActive(item.href)) return true;
+    if (item.children) return item.children.some(child => isParentOfActive(child));
+    return false;
+  };
+
+  const filterMenuItems = (items: MenuItem[]): MenuItem[] => {
+    return items
+      .filter(item => hasAnyRole(item.roles))
+      .map(item => ({ ...item, children: item.children ? filterMenuItems(item.children) : undefined }))
+      .filter(item => !item.children || item.children.length > 0);
+  };
+
+  const filteredMenuItems = useMemo(() => filterMenuItems(MENU_ITEMS), [user?.roles]);
+
+  const renderMenuItem = (item: MenuItem, depth: number = 0) => {
+    const hasChildren = item.children && item.children.length > 0;
+    const isExpanded = expandedKeys.includes(item.href);
+    const active = isActive(item.href);
+    const parentActive = isParentOfActive(item);
+    const Icon = item.icon;
+
+    const getItemStyles = () => {
+      if (active) return 'bg-blue-600 text-white shadow-md shadow-blue-600/20';
+      if (parentActive && hasChildren) return 'bg-blue-50 text-blue-600';
+      return 'text-slate-600 hover:bg-slate-50 hover:text-slate-900';
+    };
+
+    const getIconStyles = () => {
+      if (active) return 'bg-blue-500 text-white';
+      if (parentActive && hasChildren) return 'bg-blue-100 text-blue-600';
+      return 'bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-700';
+    };
+
+    const paddingLeft = isCollapsed ? 8 : 12 + depth * 16;
+    const iconSize = depth === 0 ? 'w-8 h-8' : depth === 1 ? 'w-7 h-7' : 'w-6 h-6';
+    const iconInnerSize = depth === 0 ? 'w-4 h-4' : 'w-3.5 h-3.5';
+    const fontSize = depth === 0 ? 'text-sm' : 'text-[13px]';
 
     return (
-      <div key={item.label}>
+      <div key={item.href}>
         {hasChildren ? (
           <button
-            onClick={() => toggleExpand(item.label)}
-            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all group ${
-              active
-                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                : 'text-gray-700 hover:bg-gray-100'
-            } ${isCollapsed ? 'justify-center' : ''}`}
-            style={{ paddingLeft: isCollapsed ? '16px' : `${depth * 12 + 16}px` }}
+            onClick={() => toggleExpand(item.href)}
+            style={{ paddingLeft }}
+            className={`w-full flex items-center justify-between pr-3 py-2 rounded-lg transition-all duration-200 group ${getItemStyles()} ${isCollapsed ? 'justify-center px-2' : ''}`}
             title={isCollapsed ? item.label : ''}
           >
-            <div className={`flex items-center ${isCollapsed ? '' : 'gap-3'}`}>
-              <item.icon className="w-5 h-5 shrink-0" />
+            <div className="flex items-center gap-3">
+              <div className={`flex-shrink-0 flex items-center justify-center ${iconSize} rounded-lg transition-colors ${getIconStyles()}`}>
+                <Icon className={iconInnerSize} />
+              </div>
+              {/* ✅ Text với animation mượt */}
               <span 
-                className={`font-medium whitespace-nowrap overflow-hidden transition-all duration-300 ${
-                  isCollapsed 
-                    ? 'opacity-0 w-0' 
-                    : 'opacity-100 w-auto delay-100'
+                className={`font-medium whitespace-nowrap overflow-hidden transition-all duration-200 ${fontSize} ${
+                  showText && !isCollapsed 
+                    ? 'opacity-100 max-w-[180px]' 
+                    : 'opacity-0 max-w-0'
                 }`}
-                style={{ minWidth: isCollapsed ? '0' : '120px' }}
               >
                 {item.label}
               </span>
             </div>
-            {!isCollapsed && (
-              <div className={`transition-all duration-300 ${
-                isCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto delay-100'
-              }`}>
-                {isExpanded ? (
-                  <ChevronDown className="w-4 h-4" />
-                ) : (
-                  <ChevronRight className="w-4 h-4" />
-                )}
-              </div>
-            )}
+            {/* ✅ Chevron với animation */}
+            <ChevronDown 
+              className={`flex-shrink-0 w-4 h-4 text-slate-400 transition-all duration-200 ${
+                isExpanded ? 'rotate-180' : ''
+              } ${showText && !isCollapsed ? 'opacity-100' : 'opacity-0 w-0'}`}
+            />
           </button>
         ) : (
           <Link
             href={item.href}
             onClick={onClose}
-            className={`flex items-center px-4 py-3 rounded-lg transition-all group ${
-              active
-                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                : 'text-gray-700 hover:bg-gray-100'
-            } ${isCollapsed ? 'justify-center' : 'gap-3'}`}
-            style={{ paddingLeft: isCollapsed ? '16px' : `${depth * 12 + 16}px` }}
+            style={{ paddingLeft }}
+            className={`flex items-center pr-3 py-2 rounded-lg transition-all duration-200 group ${getItemStyles()} ${isCollapsed ? 'justify-center px-2' : ''}`}
             title={isCollapsed ? item.label : ''}
-            prefetch={true}
           >
-            <item.icon className="w-5 h-5 shrink-0" />
-            <span 
-              className={`font-medium whitespace-nowrap overflow-hidden transition-all duration-300 ${
-                isCollapsed 
-                  ? 'opacity-0 w-0' 
-                  : 'opacity-100 w-auto delay-100'
-              }`}
-              style={{ minWidth: isCollapsed ? '0' : '120px' }}
-            >
-              {item.label}
-            </span>
+            <div className="flex items-center gap-3">
+              <div className={`flex-shrink-0 flex items-center justify-center ${iconSize} rounded-lg transition-colors ${getIconStyles()}`}>
+                <Icon className={iconInnerSize} />
+              </div>
+              {/* ✅ Text với animation mượt */}
+              <span 
+                className={`font-medium whitespace-nowrap overflow-hidden transition-all duration-200 ${fontSize} ${
+                  showText && !isCollapsed 
+                    ? 'opacity-100 max-w-[180px]' 
+                    : 'opacity-0 max-w-0'
+                }`}
+              >
+                {item.label}
+              </span>
+            </div>
+            {/* ✅ Active dot */}
+            {active && (
+              <div className={`flex-shrink-0 w-1.5 h-1.5 rounded-full bg-white transition-opacity duration-200 ${
+                showText && !isCollapsed ? 'opacity-100' : 'opacity-0'
+              }`} />
+            )}
           </Link>
         )}
 
         {/* Children */}
-        {hasChildren && isExpanded && !isCollapsed && (
-          <div className="mt-1 space-y-1">
-            {filteredChildren?.map(child => renderMenuItem(child, depth + 1))}
+        {hasChildren && isExpanded && !isCollapsed && showText && (
+          <div className={`mt-1 space-y-1 overflow-hidden transition-all duration-200 ${
+            depth === 0 ? 'ml-6 pl-3 border-l-2 border-slate-200' : 'ml-4 pl-2 border-l border-slate-200'
+          }`}>
+            {item.children!.map(child => renderMenuItem(child, depth + 1))}
           </div>
         )}
       </div>
@@ -127,16 +174,13 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
     <>
       {/* Mobile Overlay */}
       {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={onClose}
-        />
+        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm" onClick={onClose} />
       )}
 
       {/* Sidebar */}
-      <aside
-        className={`fixed top-16 left-0 bottom-0 bg-white border-r border-gray-200 z-40 transform transition-all duration-300 ease-in-out ${
-          isCollapsed ? 'w-20' : 'w-64'
+      <aside 
+        className={`fixed top-16 left-0 bottom-0 bg-white border-r border-slate-200 z-40 transform transition-all duration-300 ease-in-out flex flex-col ${
+          isCollapsed ? 'w-16' : 'w-64'
         } ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
@@ -144,30 +188,32 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
         {/* Toggle Button */}
         <button
           onClick={onToggleCollapse}
-          className="hidden lg:flex absolute -right-3 top-6 w-6 h-6 bg-white border border-gray-200 rounded-full items-center justify-center hover:bg-gray-50 transition-colors shadow-sm z-50"
+          className="hidden lg:flex absolute -right-3 top-6 w-6 h-6 bg-blue-600 border-2 border-white rounded-full items-center justify-center hover:bg-blue-700 transition-colors shadow-lg z-50"
         >
-          <ChevronLeft
-            className={`w-4 h-4 text-gray-600 transition-transform duration-300 ${
-              isCollapsed ? 'rotate-180' : ''
-            }`}
-          />
+          {isCollapsed ? <ChevronRight className="w-3 h-3 text-white" /> : <ChevronLeft className="w-3 h-3 text-white" />}
         </button>
 
-        <nav className="h-full overflow-y-auto overflow-x-hidden p-4 space-y-2">
-          {MENU_ITEMS.map(item => renderMenuItem(item))}
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4">
+          <div className="space-y-1 px-2">
+            {filteredMenuItems.map(item => renderMenuItem(item, 0))}
+          </div>
         </nav>
 
         {/* Footer */}
         <div 
-          className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none transition-opacity duration-300 ${
-            isCollapsed 
-              ? 'opacity-0' 
-              : 'opacity-100 delay-100'
+          className={`border-t border-slate-200 bg-slate-50 overflow-hidden transition-all duration-300 ${
+            showText && !isCollapsed ? 'p-4 opacity-100' : 'p-0 h-0 opacity-0'
           }`}
         >
-          <div className="text-center text-xs text-gray-500">
-            <p>© 2024 HRM System</p>
-            <p className="mt-1">Version 1.0.0</p>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+              {user?.full_name?.charAt(0) || 'U'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-700 truncate">{user?.full_name || 'User'}</p>
+              <p className="text-xs text-slate-400 truncate">{user?.roles?.[0]?.name || 'Employee'}</p>
+            </div>
           </div>
         </div>
       </aside>

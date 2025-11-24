@@ -29,6 +29,10 @@ export const ROUTES = {
       DETAIL: (id: string) => `/dashboard/projects/${id}`,
     },
 
+    REQUESTS: {
+      REQUESTS: '/dashboard/requests',
+    },
+
     // Accounting
     ACCOUNTING: {
       SALARY: '/dashboard/accounting/salary',
