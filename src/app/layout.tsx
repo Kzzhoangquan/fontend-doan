@@ -17,7 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi">
-      <body className={inter.variable}>
+      <body className={inter.variable} suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>
