@@ -449,6 +449,11 @@ export default function RequestsPage() {
             Tạo yêu cầu
           </button>
         </div>
+        <div className="text-right">
+          <div className="text-sm text-gray-500">Chờ duyệt</div>
+          <div className="text-3xl font-bold text-yellow-600">{statistics?.pending || 0}</div>
+        </div>
+      </div>
 
         {/* Filters */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

@@ -1,170 +1,160 @@
-"use client";
+// src/app/dashboard/hr/asset-assignment/page.tsx
+'use client';
 
-import React, { useState } from 'react';
-import { Users, Package, History, X, Calendar, User, FileText } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Users, Package, History, FileText, Search, AlertCircle } from 'lucide-react';
+import {
+  assignmentService,
+  Assignment,
+  AssignmentStatus,
+  Employee,
+} from '@/lib/api/services/assignment.service';
+import { Asset } from '@/lib/api/services/asset.service';
+import { employeeService } from '@/lib/api/services/employee.service';
+import { useAuth } from '@/hooks/useAuth';
+import { UserRole } from '@/lib/constants/roles';
 
-interface Employee {
-  id: number;
-  code: string;
-  name: string;
-  department: string;
-  position: string;
-}
+import Modal from '@/components/ui/Modal';
+import Button from '@/components/ui/Button';
 
-interface Asset {
-  id: number;
-  code: string;
-  name: string;
-  category: string;
-  status: string;
-}
+const STATUS_MAP: Record<AssignmentStatus, { label: string; color: string }> = {
+  ASSIGNED: { label: 'Đang sử dụng', color: 'bg-green-100 text-green-800' },
+  RETURNED: { label: 'Đã trả', color: 'bg-gray-100 text-gray-800' },
+};
 
-interface Assignment {
-  id: number;
-  assetId: number;
-  employeeId: number;
-  assignDate: string;
-  returnDate: string | null;
-  status: 'Đang sử dụng' | 'Đã trả';
-  note: string;
-  assignedBy: string;
-}
+export default function AssetAssignmentPage() {
+  const { user, hasRole } = useAuth();
+  const canManage = hasRole(UserRole.MANAGER);
 
-interface AssignForm {
-  assetId: string;
-  employeeId: string;
-  assignDate: string;
-  note: string;
-  assignedBy: string;
-}
-
-const AssetAssignmentSystem = () => {
-  const [employees] = useState<Employee[]>([
-    { id: 1, code: 'NV001', name: 'Nguyễn Văn A', department: 'IT', position: 'Lập trình viên' },
-    { id: 2, code: 'NV002', name: 'Trần Thị B', department: 'Kế toán', position: 'Kế toán viên' },
-    { id: 3, code: 'NV003', name: 'Lê Văn C', department: 'Nhân sự', position: 'Chuyên viên' },
-    { id: 4, code: 'NV004', name: 'Phạm Thị D', department: 'IT', position: 'Tester' },
-    { id: 5, code: 'NV005', name: 'Hoàng Văn E', department: 'Marketing', position: 'Marketing Manager' },
-  ]);
-
-  const [assets] = useState<Asset[]>([
-    { id: 1, code: 'MT001', name: 'Laptop Dell XPS 15', category: 'Máy tính', status: 'Đang sử dụng' },
-    { id: 2, code: 'BG001', name: 'Bàn làm việc gỗ', category: 'Bàn ghế', status: 'Mới' },
-    { id: 3, code: 'TB001', name: 'Máy in HP LaserJet', category: 'Thiết bị văn phòng', status: 'Đang sử dụng' },
-    { id: 4, code: 'DT001', name: 'iPhone 15 Pro', category: 'Điện thoại', status: 'Mới' },
-    { id: 5, code: 'MT002', name: 'MacBook Pro M3', category: 'Máy tính', status: 'Mới' },
-    { id: 6, code: 'TB002', name: 'Màn hình Dell 27 inch', category: 'Thiết bị văn phòng', status: 'Mới' },
-  ]);
-
-  const [assignments, setAssignments] = useState<Assignment[]>([
-    {
-      id: 1,
-      assetId: 1,
-      employeeId: 1,
-      assignDate: '2024-01-15',
-      returnDate: null,
-      status: 'Đang sử dụng',
-      note: 'Laptop cho dự án mới',
-      assignedBy: 'Admin'
-    },
-    {
-      id: 2,
-      assetId: 3,
-      employeeId: 2,
-      assignDate: '2024-02-20',
-      returnDate: '2024-05-20',
-      status: 'Đã trả',
-      note: 'Sử dụng tạm thời',
-      assignedBy: 'Admin'
-    },
-    {
-      id: 3,
-      assetId: 4,
-      employeeId: 4,
-      assignDate: '2024-03-10',
-      returnDate: null,
-      status: 'Đang sử dụng',
-      note: 'Điện thoại công ty',
-      assignedBy: 'Admin'
-    },
-  ]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [availableAssets, setAvailableAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const [currentView, setCurrentView] = useState<'list' | 'history'>('list');
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false); // ← MỚI: Modal xác nhận thu hồi
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
-  
-  const [assignForm, setAssignForm] = useState<AssignForm>({
-    assetId: '',
-    employeeId: '',
-    assignDate: new Date().toISOString().split('T')[0],
+  const [submitting, setSubmitting] = useState(false);
+
+  const [assignForm, setAssignForm] = useState({
+    asset_id: 0,
+    employee_id: 0,
+    assignment_date: new Date().toISOString().split('T')[0],
     note: '',
-    assignedBy: 'Admin'
   });
 
+  const [returnForm, setReturnForm] = useState({
+    return_date: new Date().toISOString().split('T')[0],
+    return_reason: '',
+    condition_on_return: '',
+  });
+
+  const [searchTerm, setSearchTerm] = useState('');
   const [filterEmployee, setFilterEmployee] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
-  const getEmployeeName = (employeeId: number): string => {
-    const employee = employees.find((e) => e.id === employeeId);
-    return employee ? employee.name : '';
+  // === FETCH DATA ===
+  useEffect(() => { fetchEmployees(); }, []);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => fetchAssignments(), 300);
+    return () => clearTimeout(timeoutId);
+  }, [currentPage, searchTerm, filterEmployee, filterStatus]);
+
+  const fetchEmployees = async () => {
+    try {
+      const data = await employeeService.getAll({ page: 1, pageSize: 1000 });
+      setEmployees(data.data);
+    } catch (err) { console.error(err); }
   };
 
-  const getAssetName = (assetId: number): string => {
-    const asset = assets.find((a) => a.id === assetId);
-    return asset ? asset.name : '';
+  const fetchAvailableAssets = async () => {
+    try {
+      const data = await assignmentService.getAvailableAssets(1, 1000);
+      setAvailableAssets(data.data || []);
+    } catch (err) { console.error(err); }
   };
 
-  const getAssetCode = (assetId: number): string => {
-    const asset = assets.find((a) => a.id === assetId);
-    return asset ? asset.code : '';
+  const fetchAssignments = async () => {
+    setLoading(true); setError('');
+    try {
+      const data = await assignmentService.getAll({
+        page: currentPage,
+        pageSize: itemsPerPage,
+        search: searchTerm.trim(),
+        employeeId: filterEmployee ? parseInt(filterEmployee) : undefined,
+        status: filterStatus ? (filterStatus as AssignmentStatus) : undefined,
+      });
+      setAssignments(data.data);
+      setTotal(data.total);
+      setTotalPages(data.totalPages);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Không thể tải danh sách phân công');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getEmployee = (employeeId: number): Employee | undefined => {
-    return employees.find((e) => e.id === employeeId);
+  // === PHÂN CÔNG MỚI ===
+  const handleAddAssignment = () => {
+    fetchAvailableAssets();
+    setAssignForm({
+      asset_id: 0,
+      employee_id: 0,
+      assignment_date: new Date().toISOString().split('T')[0],
+      note: '',
+    });
+    setShowAssignModal(true);
   };
 
-  const getAsset = (assetId: number): Asset | undefined => {
-    return assets.find((a) => a.id === assetId);
-  };
-
-  const handleAssignAsset = () => {
-    if (!assignForm.assetId || !assignForm.employeeId) {
+  const handleAssignAsset = async () => {
+    if (!assignForm.asset_id || !assignForm.employee_id) {
       alert('Vui lòng chọn đầy đủ tài sản và nhân viên!');
       return;
     }
-
-    const newAssignment: Assignment = {
-      id: Date.now(),
-      assetId: parseInt(assignForm.assetId),
-      employeeId: parseInt(assignForm.employeeId),
-      assignDate: assignForm.assignDate,
-      returnDate: null,
-      status: 'Đang sử dụng',
-      note: assignForm.note,
-      assignedBy: assignForm.assignedBy
-    };
-
-    setAssignments([...assignments, newAssignment]);
-    setShowAssignModal(false);
-    setAssignForm({
-      assetId: '',
-      employeeId: '',
-      assignDate: new Date().toISOString().split('T')[0],
-      note: '',
-      assignedBy: 'Admin'
-    });
-    alert('Phân công tài sản thành công!');
+    setSubmitting(true);
+    try {
+      await assignmentService.create(assignForm, user?.id);
+      alert('Phân công tài sản thành công!');
+      setShowAssignModal(false);
+      fetchAssignments();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Không thể phân công tài sản');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleReturnAsset = (assignmentId: number) => {
-    if (window.confirm('Xác nhận thu hồi tài sản này?')) {
-      setAssignments(assignments.map((a) => 
-        a.id === assignmentId 
-          ? { ...a, returnDate: new Date().toISOString().split('T')[0], status: 'Đã trả' as const }
-          : a
-      ));
+  // === THU HỒI ===
+  const openReturnModal = (assignment: Assignment) => {
+    setSelectedAssignment(assignment);
+    setReturnForm({
+      return_date: new Date().toISOString().split('T')[0],
+      return_reason: '',
+      condition_on_return: '',
+    });
+    setShowReturnModal(true);
+  };
+
+  const handleReturnAsset = async () => {
+    if (!selectedAssignment) return;
+    setSubmitting(true);
+    try {
+      await assignmentService.returnAssignment(selectedAssignment.id, returnForm, user?.id);
       alert('Thu hồi tài sản thành công!');
+      setShowReturnModal(false);
+      fetchAssignments();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Không thể thu hồi tài sản');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -173,413 +163,335 @@ const AssetAssignmentSystem = () => {
     setShowDetailModal(true);
   };
 
-  const filteredAssignments = assignments.filter((a) => {
-    const matchesEmployee = !filterEmployee || a.employeeId === parseInt(filterEmployee);
-    const matchesStatus = !filterStatus || a.status === filterStatus;
-    return matchesEmployee && matchesStatus;
-  });
-
-  const availableAssets = assets.filter((asset) => {
-    return !assignments.some((a) => a.assetId === asset.id && a.status === 'Đang sử dụng');
-  });
+  const filteredForView = currentView === 'list'
+    ? assignments.filter(a => a.status === 'ASSIGNED')
+    : assignments;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-800">Quản lý Phân công Tài sản</h1>
-              <p className="text-gray-600 mt-1">Phân công và theo dõi tài sản cho nhân viên</p>
-            </div>
-            <button
-              onClick={() => setShowAssignModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-            >
-              <Package size={20} />
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Quản lý Phân công Tài sản</h1>
+            <p className="text-gray-600 mt-1">Phân công và theo dõi tài sản cho nhân viên</p>
+          </div>
+          {canManage && (
+            <Button onClick={handleAddAssignment} icon={<Package className="w-5 h-5" />}>
               Phân công mới
-            </button>
-          </div>
+            </Button>
+          )}
         </div>
-
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setCurrentView('list')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
-                currentView === 'list'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <Users size={20} />
-              Danh sách phân công
-            </button>
-            <button
-              onClick={() => setCurrentView('history')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
-                currentView === 'history'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <History size={20} />
-              Lịch sử phân công
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Nhân viên</label>
-              <select
-                value={filterEmployee}
-                onChange={(e) => setFilterEmployee(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Tất cả nhân viên</option>
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>{emp.name} - {emp.code}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Trạng thái</label>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Tất cả trạng thái</option>
-                <option value="Đang sử dụng">Đang sử dụng</option>
-                <option value="Đã trả">Đã trả</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {currentView === 'list' && (
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div className="p-4 bg-gray-50 border-b">
-              <h2 className="text-lg font-semibold text-gray-800">Tài sản đang được phân công</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mã TS</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tên tài sản</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nhân viên</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ngày phân công</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredAssignments.filter((a) => a.status === 'Đang sử dụng').map((assignment) => (
-                    <tr key={assignment.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {getAssetCode(assignment.assetId)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {getAssetName(assignment.assetId)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {getEmployeeName(assignment.employeeId)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {assignment.assignDate}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                          {assignment.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => viewDetail(assignment)}
-                            className="text-blue-600 hover:text-blue-800"
-                            title="Xem chi tiết"
-                          >
-                            <FileText size={18} />
-                          </button>
-                          <button
-                            onClick={() => handleReturnAsset(assignment.id)}
-                            className="px-3 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 text-xs"
-                          >
-                            Thu hồi
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {filteredAssignments.filter((a) => a.status === 'Đang sử dụng').length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  Không có tài sản nào đang được phân công
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {currentView === 'history' && (
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div className="p-4 bg-gray-50 border-b">
-              <h2 className="text-lg font-semibold text-gray-800">Lịch sử phân công tài sản</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mã TS</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tên tài sản</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nhân viên</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ngày phân công</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ngày trả</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Chi tiết</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredAssignments.map((assignment) => (
-                    <tr key={assignment.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {getAssetCode(assignment.assetId)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {getAssetName(assignment.assetId)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {getEmployeeName(assignment.employeeId)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {assignment.assignDate}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {assignment.returnDate || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          assignment.status === 'Đang sử dụng' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {assignment.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <button
-                          onClick={() => viewDetail(assignment)}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Xem chi tiết"
-                        >
-                          <FileText size={18} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {filteredAssignments.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  Không có lịch sử phân công
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {showAssignModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Phân công Tài sản</h2>
-                <button onClick={() => setShowAssignModal(false)} className="text-gray-500 hover:text-gray-700">
-                  <X size={24} />
-                </button>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tài sản *</label>
-                  <select
-                    value={assignForm.assetId}
-                    onChange={(e) => setAssignForm({...assignForm, assetId: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Chọn tài sản</option>
-                    {availableAssets.map((asset) => (
-                      <option key={asset.id} value={asset.id}>
-                        {asset.code} - {asset.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nhân viên *</label>
-                  <select
-                    value={assignForm.employeeId}
-                    onChange={(e) => setAssignForm({...assignForm, employeeId: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Chọn nhân viên</option>
-                    {employees.map((emp) => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.code} - {emp.name} ({emp.department})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ngày phân công *</label>
-                  <input
-                    type="date"
-                    value={assignForm.assignDate}
-                    onChange={(e) => setAssignForm({...assignForm, assignDate: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú</label>
-                  <textarea
-                    value={assignForm.note}
-                    onChange={(e) => setAssignForm({...assignForm, note: e.target.value})}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Ghi chú về việc phân công..."
-                  />
-                </div>
-              </div>
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={handleAssignAsset}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                >
-                  Phân công
-                </button>
-                <button
-                  onClick={() => setShowAssignModal(false)}
-                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
-                >
-                  Hủy
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showDetailModal && selectedAssignment && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Chi tiết Phân công</h2>
-                <button onClick={() => setShowDetailModal(false)} className="text-gray-500 hover:text-gray-700">
-                  <X size={24} />
-                </button>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    <Package size={18} />
-                    Thông tin Tài sản
-                  </h3>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="text-gray-600">Mã tài sản:</span>
-                      <span className="ml-2 font-medium">{getAssetCode(selectedAssignment.assetId)}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Tên tài sản:</span>
-                      <span className="ml-2 font-medium">{getAssetName(selectedAssignment.assetId)}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Loại:</span>
-                      <span className="ml-2 font-medium">{getAsset(selectedAssignment.assetId)?.category}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    <User size={18} />
-                    Thông tin Nhân viên
-                  </h3>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="text-gray-600">Mã NV:</span>
-                      <span className="ml-2 font-medium">{getEmployee(selectedAssignment.employeeId)?.code}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Họ tên:</span>
-                      <span className="ml-2 font-medium">{getEmployeeName(selectedAssignment.employeeId)}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Phòng ban:</span>
-                      <span className="ml-2 font-medium">{getEmployee(selectedAssignment.employeeId)?.department}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Chức vụ:</span>
-                      <span className="ml-2 font-medium">{getEmployee(selectedAssignment.employeeId)?.position}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-span-1 md:col-span-2 bg-gray-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    <Calendar size={18} />
-                    Thông tin Phân công
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-600">Ngày phân công:</span>
-                      <span className="ml-2 font-medium">{selectedAssignment.assignDate}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Ngày trả:</span>
-                      <span className="ml-2 font-medium">{selectedAssignment.returnDate || 'Chưa trả'}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Người phân công:</span>
-                      <span className="ml-2 font-medium">{selectedAssignment.assignedBy}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Trạng thái:</span>
-                      <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${
-                        selectedAssignment.status === 'Đang sử dụng' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {selectedAssignment.status}
-                      </span>
-                    </div>
-                    {selectedAssignment.note && (
-                      <div className="col-span-1 md:col-span-2">
-                        <span className="text-gray-600">Ghi chú:</span>
-                        <p className="ml-2 mt-1 text-gray-800">{selectedAssignment.note}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <button
-                  onClick={() => setShowDetailModal(false)}
-                  className="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
-                >
-                  Đóng
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <p className="text-red-600 text-sm font-medium">{error}</p>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="bg-white rounded-lg shadow-sm p-4">
+        <div className="flex gap-3">
+          <button
+            onClick={() => setCurrentView('list')}
+            className={`flex items-center gap-2 px-5 py-3 rounded-lg font-semibold transition ${currentView === 'list' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+          >
+            <Users size={20} /> Danh sách phân công
+          </button>
+          <button
+            onClick={() => setCurrentView('history')}
+            className={`flex items-center gap-2 px-5 py-3 rounded-lg font-semibold transition ${currentView === 'history' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+          >
+            <History size={20} /> Lịch sử phân công
+          </button>
+        </div>
+      </div>
+
+      {/* Filters – CHỮ ĐẬM + ĐẸP */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+            <input
+              type="text"
+              placeholder="Tìm theo tên NV, mã/tên TS..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-gray-900 placeholder-gray-500"
+            />
+          </div>
+          <select
+            value={filterEmployee}
+            onChange={(e) => { setFilterEmployee(e.target.value); setCurrentPage(1); }}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-gray-900"
+          >
+            <option value="">Tất cả nhân viên</option>
+            {employees.map(emp => (
+              <option key={emp.id} value={emp.id}>
+                {emp.full_name} - {emp.employee_code}
+              </option>
+            ))}
+          </select>
+          <select
+            value={filterStatus}
+            onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-gray-900"
+          >
+            <option value="">Tất cả trạng thái</option>
+            <option value="ASSIGNED">Đang sử dụng</option>
+            <option value="RETURNED">Đã trả</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Table – CHỮ ĐẬM RÕ RÀNG */}
+      {loading ? (
+        <div className="bg-white rounded-lg shadow-sm p-16 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mx-auto mb-4" />
+          <p className="text-lg font-semibold text-gray-700">Đang tải dữ liệu...</p>
+        </div>
+      ) : (
+        <>
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div className="p-5 bg-gray-50 border-b">
+              <h2 className="text-xl font-bold text-gray-900">
+                {currentView === 'list' ? 'Tài sản đang được phân công' : 'Lịch sử phân công tài sản'}
+              </h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b-2 border-gray-200">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Mã TS</th>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Tên tài sản</th>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Nhân viên</th>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Ngày phân công</th>
+                    {currentView === 'history' && <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Ngày trả</th>}
+                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Trạng thái</th>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredForView.length === 0 ? (
+                    <tr>
+                      <td colSpan={currentView === 'history' ? 7 : 6} className="px-6 py-24 text-center">
+                        <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                        <p className="text-lg font-semibold text-gray-600">
+                          {currentView === 'list' ? 'Không có tài sản nào đang được phân công' : 'Không có lịch sử phân công'}
+                        </p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredForView.map(assignment => (
+                      <tr key={assignment.id} className="hover:bg-gray-50 transition">
+                        <td className="px-6 py-4 font-bold text-gray-900">{assignment.asset.asset_code}</td>
+                        <td className="px-6 py-4 font-semibold text-gray-900">{assignment.asset.asset_name}</td>
+                        <td className="px-6 py-4 font-semibold text-gray-900">{assignment.employee.full_name}</td>
+                        <td className="px-6 py-4 text-gray-700">{assignment.assignment_date}</td>
+                        {currentView === 'history' && (
+                          <td className="px-6 py-4 text-gray-700">{assignment.return_date || '-'}</td>
+                        )}
+                        <td className="px-6 py-4">
+                          <span className={`px-3 py-1.5 text-sm font-bold rounded-full ${STATUS_MAP[assignment.status].color}`}>
+                            {STATUS_MAP[assignment.status].label}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <button onClick={() => viewDetail(assignment)} className="text-blue-600 hover:text-blue-800 transition">
+                              <FileText size={20} />
+                            </button>
+                            {canManage && assignment.status === 'ASSIGNED' && (
+                              <button
+                                onClick={() => openReturnModal(assignment)}
+                                className="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 transition"
+                              >
+                                Thu hồi
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="bg-white rounded-lg shadow-sm p-5">
+              <div className="flex justify-between items-center">
+                <p className="font-semibold text-gray-700">Hiển thị 10 / {total} bản ghi</p>
+                <div className="flex gap-3">
+                  <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                    className="px-5 py-2.5 border-2 border-gray-300 rounded-lg font-bold hover:bg-gray-50 disabled:opacity-50">
+                    Trước
+                  </button>
+                  <span className="px-5 py-2.5 font-bold">Trang {currentPage} / {totalPages}</span>
+                  <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                    className="px-5 py-2.5 border-2 border-gray-300 rounded-lg font-bold hover:bg-gray-50 disabled:opacity-50">
+                    Sau
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+     {/* MODAL PHÂN CÔNG */}
+      <Modal isOpen={showAssignModal} onClose={() => setShowAssignModal(false)} title="Phân công Tài sản" size="md">
+        <div className="space-y-4 text-gray-700">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tài sản *</label>
+            <select
+              value={assignForm.asset_id}
+              onChange={e => setAssignForm({ ...assignForm, asset_id: parseInt(e.target.value) })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              <option value={0}>Chọn tài sản</option>
+              {availableAssets.map(asset => (
+                <option key={asset.id} value={asset.id}>
+                  {asset.asset_code} - {asset.asset_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nhân viên *</label>
+            <select
+              value={assignForm.employee_id}
+              onChange={e => setAssignForm({ ...assignForm, employee_id: parseInt(e.target.value) })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              <option value={0}>Chọn nhân viên</option>
+              {employees.map(emp => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.employee_code} - {emp.full_name} ({emp.department || 'N/A'})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ngày phân công *</label>
+            <input
+              type="date"
+              value={assignForm.assignment_date}
+              onChange={e => setAssignForm({ ...assignForm, assignment_date: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú</label>
+            <textarea
+              value={assignForm.note}
+              onChange={e => setAssignForm({ ...assignForm, note: e.target.value })}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              placeholder="Ghi chú về việc phân công..."
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <Button onClick={handleAssignAsset} className="flex-1" disabled={submitting}>
+            {submitting ? 'Đang xử lý...' : 'Phân công'}
+          </Button>
+          <Button variant="secondary" onClick={() => setShowAssignModal(false)} className="flex-1">
+            Hủy
+          </Button>
+        </div>
+      </Modal>
+
+      {/* MODAL CHI TIẾT – CHỮ ĐẬM SIÊU ĐẸP */}
+      <Modal isOpen={showDetailModal} onClose={() => setShowDetailModal(false)} title="Chi tiết Phân công" size="lg">
+        {selectedAssignment && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-2xl">
+              <h3 className="text-xl font-bold text-blue玲-900 mb-5 flex items-center gap-3">
+                <Package size={24} /> Thông tin Tài sản
+              </h3>
+              <div className="space-y-4 text-lg">
+                <div className="flex justify-between"><span className="font-bold text-gray-700">Mã tài sản:</span> <span className="font-black text-gray-900">{selectedAssignment.asset.asset_code}</span></div>
+                <div className="flex justify-between"><span className="font-bold text-gray-700">Tên tài sản:</span> <span className="font-black text-gray-900">{selectedAssignment.asset.asset_name}</span></div>
+                <div className="flex justify-between"><span className="font-bold text-gray-700">Loại:</span> <span className="font-black text-gray-900">{selectedAssignment.asset.category?.category_name || 'Chưa xác định'}</span></div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-2xl">
+              <h3 className="text-xl font-bold text-green-900 mb-5 flex items-center gap-3">
+                <Users size={24} /> Thông tin Nhân viên
+              </h3>
+              <div className="space-y-4 text-lg">
+                <div className="flex justify-between"><span className="font-bold text-gray-700">Mã NV:</span> <span className="font-black text-gray-900">{selectedAssignment.employee.employee_code}</span></div>
+                <div className="flex justify-between"><span className="font-bold text-gray-700">Họ tên:</span> <span className="font-black text-gray-900">{selectedAssignment.employee.full_name}</span></div>
+                <div className="flex justify-between"><span className="font-bold text-gray-700">Phòng ban:</span> <span className="font-black text-gray-900">{selectedAssignment.employee.department || 'N/A'}</span></div>
+                <div className="flex justify-between"><span className="font-bold text-gray-700">Chức vụ:</span> <span className="font-black text-gray-900">{selectedAssignment.employee.position || 'N/A'}</span></div>
+              </div>
+            </div>
+
+            <div className="col-span-2 bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-2xl">
+              <h3 className="text-xl font-bold text-purple-900 mb-5 flex items-center gap-3">
+                <History size={24} /> Thông tin Phân công
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-lg">
+                <div><span className="font-bold text-gray-700">Ngày phân công:</span> <span className="font-black text-gray-900">{selectedAssignment.assignment_date}</span></div>
+                <div><span className="font-bold text-gray-700">Ngày trả:</span> <span className="font-black text-gray-900">{selectedAssignment.return_date || 'Chưa trả'}</span></div>
+                <div><span className="font-bold text-gray-700">Người phân công:</span> <span className="font-black text-gray-900">{selectedAssignment.assigned_by?.full_name || 'N/A'}</span></div>
+                <div><span className="font-bold text-gray-700">Trạng thái:</span>
+                  <span className={`ml-3 px-4 py-2 rounded-full font-bold ${STATUS_MAP[selectedAssignment.status].color}`}>
+                    {STATUS_MAP[selectedAssignment.status].label}
+                  </span>
+                </div>
+                {selectedAssignment.note && (
+                  <div className="md:col-span-2">
+                    <span className="font-bold text-gray-700">Ghi chú:</span>
+                    <p className="mt-2 text-gray-900 font-medium bg-white p-4 rounded-lg shadow-inner">{selectedAssignment.note}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="mt-8">
+          <Button variant="secondary" onClick={() => setShowDetailModal(false)} className="w-full text-xl font-bold py-4">
+            Đóng
+          </Button>
+        </div>
+      </Modal>
+
+      {/* MODAL XÁC NHẬN THU HỒI – ĐẸP NHƯ PHÂN CÔNG MỚI */}
+      <Modal isOpen={showReturnModal} onClose={() => setShowReturnModal(false)} title="Xác nhận Thu hồi Tài sản" size="md">
+        {selectedAssignment && (
+          <div className="text-center py-6">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertCircle size={44} className="text-red-600" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">
+              Bạn có chắc chắn muốn thu hồi?
+            </h3>
+            <div className="bg-gray-50 p-5 rounded-xl mb-6 text-left">
+              <p className="font-bold text-lg text-gray-900">{selectedAssignment.asset.asset_name}</p>
+              <p className="text-gray-700">Mã: <span className="font-bold">{selectedAssignment.asset.asset_code}</span></p>
+              <p className="text-gray-700">Đang sử dụng bởi: <span className="font-bold">{selectedAssignment.employee.full_name}</span></p>
+            </div>
+            <div className="flex gap-4">
+              <Button onClick={handleReturnAsset} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold text-lg py-4" disabled={submitting}>
+                {submitting ? 'Đang thu hồi...' : 'Xác nhận thu hồi'}
+              </Button>
+              <Button variant="secondary" onClick={() => setShowReturnModal(false)} className="flex-1 font-bold text-lg py-4">
+                Hủy bỏ
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
-};
-
-export default AssetAssignmentSystem;
+}

@@ -37,7 +37,7 @@ export const MENU_ITEMS: MenuItem[] = [
     ],
   },
   {
-    label: 'Quản lý nhân sự',
+    label: 'Quản lý',
     icon: Users,
     href: '/dashboard/hr',
     roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN, UserRole.EMPLOYEE],
@@ -54,6 +54,7 @@ export const MENU_ITEMS: MenuItem[] = [
         href: ROUTES.DASHBOARD.HR.DEPARTMENTS,
         roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN],
       },
+      // ✅ TÀI SẢN - CẤP 2 với children cấp 3
       {
         label: 'Vị trí',
         icon: Briefcase,
@@ -63,14 +64,22 @@ export const MENU_ITEMS: MenuItem[] = [
       {
         label: 'Tài sản',
         icon: Package,
-        href: ROUTES.DASHBOARD.HR.ASSETS,
-        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN],
-      },
-      {
-        label: 'Phân công tài sản',
-        icon: Package,
-        href: ROUTES.DASHBOARD.HR.ASSET_ASSIGNMENT,
-        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN],
+        href: '/dashboard/hr/assets-management',
+        roles: [UserRole.MANAGER],
+        children: [
+          {
+            label: 'Danh sách tài sản',
+            icon: List,
+            href: ROUTES.DASHBOARD.HR.ASSETS,
+            roles: [UserRole.MANAGER],
+          },
+          {
+            label: 'Phân công tài sản',
+            icon: ArrowRightLeft,
+            href: ROUTES.DASHBOARD.HR.ASSET_ASSIGNMENT,
+            roles: [UserRole.MANAGER],
+          },
+        ],
       },
       {
         label: 'Công ca',
@@ -138,11 +147,17 @@ export const MENU_ITEMS: MenuItem[] = [
       },
       {
         label: 'Báo cáo',
-        icon: CheckSquare,
+        icon: FileText,
         href: ROUTES.DASHBOARD.ACCOUNTING.REPORTS,
         roles: [UserRole.ACCOUNTANT, UserRole.SUPER_ADMIN],
       },
     ],
+  },
+  {
+    label: 'Tạo yêu cầu cấp tài sản',
+    icon: FolderKanban,
+    href: ROUTES.DASHBOARD.REQUESTS.REQUESTS,
+    roles: [UserRole.EMPLOYEE],
   },
   {
     label: 'Cài đặt',
