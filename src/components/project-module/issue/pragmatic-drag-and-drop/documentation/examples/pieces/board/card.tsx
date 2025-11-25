@@ -46,7 +46,7 @@ import { type ColumnType, type Issue } from '../../data/people';
 
 import { useBoardContext } from './board-context';
 import { useColumnContext } from './column-context';
-import { IssueEditModal } from '../../../../../IssueEditModal';
+import { IssueEditModal } from '../../../../../EditForm/IssueEditModal';
 import { EpicTag } from '../../../../../../epic/EpicTag';
 import { IssueTypeIcon } from './IssueTypeIcon';
 import { PriorityIcon } from './PriorityIcon';

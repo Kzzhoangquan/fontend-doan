@@ -23,7 +23,7 @@ import {
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { SprintFormModal } from './SprintFormModal';
 import { SprintIssueCard } from './SprintIssueCard';
-import { IssueEditModal } from '../issue/IssueEditModal';
+import { IssueEditModal } from '../issue/EditForm/IssueEditModal';
 import { CreateIssueModal } from '../issue/CreateIssueModal';
 import { Issue, Sprint } from './sprint.types';
 import { sprintService } from '@/lib/api/services/sprint.service';

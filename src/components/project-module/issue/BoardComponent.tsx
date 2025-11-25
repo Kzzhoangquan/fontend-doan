@@ -1,4 +1,3 @@
-'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import invariant from 'tiny-invariant';
@@ -21,7 +20,7 @@ import { Column } from '@/components/project-module/issue/pragmatic-drag-and-dro
 import { createRegistry } from '@/components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/registry';
 import { CreateIssueModal } from '@/components/project-module/issue/CreateIssueModal';
 import { boardService } from '@/lib/api/services/board.service';
-import { BoardFilter, BoardFilterValues, useFilteredBoardData } from '../../../../../../components/project-module/issue/BoardFilter';
+import { BoardFilter, BoardFilterValues, useFilteredBoardData } from './BoardFilter';
 
 type Outcome =
 	| {
@@ -56,9 +55,16 @@ type BoardState = {
 	lastOperation: Operation | null;
 };
 
-export default function BoardExample() {
+type BoardProps = {
+    projectId: number;
+    boardId: number;
+};
+
+export const BoardComponent: React.FC<BoardProps> = ({
+    projectId,
+    boardId,
+}) =>  {
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-	const projectId = 1; // Lấy từ context hoặc props
 
 	const [data, setData] = useState<BoardState | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -81,7 +87,7 @@ export default function BoardExample() {
 		try {
 			setLoading(true);
 			
-			const apiData = await boardService.getBoardByWorkflow(parseInt(workflowId));
+			const apiData = await boardService.getBoardByWorkflow(boardId ?? 1);
 			
 			console.log('API data:', apiData);
 			

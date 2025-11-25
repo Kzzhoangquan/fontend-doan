@@ -5,8 +5,10 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useProjects } from '@/hooks/useProjects';
 import { MENU_ITEMS, MenuItem } from '@/lib/constants/menu';
-import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { ROUTES } from '@/lib/constants/routes';
+import { ChevronLeft, ChevronRight, ChevronDown, FolderKanban, Loader2 } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -18,12 +20,13 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
   const { hasAnyRole, user } = useAuth();
+  const { projects, loading: projectsLoading } = useProjects();
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
   
-  // ✅ State để delay hiển thị text sau khi sidebar mở
+  // State để delay hiển thị text sau khi sidebar mở
   const [showText, setShowText] = useState(!isCollapsed);
 
-  // ✅ Delay text: ẩn ngay khi collapse, hiện sau 150ms khi expand
+  // Delay text: ẩn ngay khi collapse, hiện sau 150ms khi expand
   useEffect(() => {
     if (isCollapsed) {
       setShowText(false);
@@ -54,7 +57,22 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
     setExpandedKeys(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
   };
 
-  const isActive = (href: string) => pathname === href;
+  const isActive = (href: string) => {
+    // Exact match
+    if (pathname === href) return true;
+    
+    // Nếu là project item, check xem pathname có bắt đầu với href không
+    if (href.includes('/dashboard/projects/') && href !== '/dashboard/projects') {
+      const projectIdMatch = href.match(/\/dashboard\/projects\/(\d+)/);
+      if (projectIdMatch) {
+        const projectId = projectIdMatch[1];
+        const projectBasePath = `/dashboard/projects/${projectId}`;
+        return pathname.startsWith(projectBasePath);
+      }
+    }
+    
+    return false;
+  };
   
   const isParentOfActive = (item: MenuItem): boolean => {
     if (isActive(item.href)) return true;
@@ -65,18 +83,41 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
   const filterMenuItems = (items: MenuItem[]): MenuItem[] => {
     return items
       .filter(item => hasAnyRole(item.roles))
-      .map(item => ({ ...item, children: item.children ? filterMenuItems(item.children) : undefined }))
+      .map(item => {
+        // Nếu là menu "Quản lý dự án", CHỈ hiển thị danh sách projects
+        if (item.href === '/dashboard/projects') {
+          const projectChildren: MenuItem[] = projects.map(project => ({
+            label: project.project_key,
+            icon: FolderKanban,
+            href: `/dashboard/projects/${project.id}/sprints`, // Link đến sprint page
+            roles: item.roles, // Kế thừa roles từ parent
+          }));
+
+          return {
+            ...item,
+            children: projectChildren, // CHỈ có projects, không có menu con khác
+          };
+        }
+
+        return {
+          ...item,
+          children: item.children ? filterMenuItems(item.children) : undefined,
+        };
+      })
       .filter(item => !item.children || item.children.length > 0);
   };
 
-  const filteredMenuItems = useMemo(() => filterMenuItems(MENU_ITEMS), [user?.roles]);
+  const filteredMenuItems = useMemo(() => filterMenuItems(MENU_ITEMS), [user?.roles, projects, projectsLoading]);
 
-  const renderMenuItem = (item: MenuItem, depth: number = 0) => {
+  const renderMenuItem = (item: MenuItem, depth: number = 0, parentHref?: string) => {
     const hasChildren = item.children && item.children.length > 0;
     const isExpanded = expandedKeys.includes(item.href);
     const active = isActive(item.href);
     const parentActive = isParentOfActive(item);
     const Icon = item.icon;
+
+    // Check if this is a project item (depth = 1 and parent is /dashboard/projects)
+    const isProjectItem = depth === 1 && parentHref === '/dashboard/projects' && item.icon === FolderKanban;
 
     const getItemStyles = () => {
       if (active) return 'bg-blue-600 text-white shadow-md shadow-blue-600/20';
@@ -108,7 +149,6 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
               <div className={`flex-shrink-0 flex items-center justify-center ${iconSize} rounded-lg transition-colors ${getIconStyles()}`}>
                 <Icon className={iconInnerSize} />
               </div>
-              {/* ✅ Text với animation mượt */}
               <span 
                 className={`font-medium whitespace-nowrap overflow-hidden transition-all duration-200 ${fontSize} ${
                   showText && !isCollapsed 
@@ -119,7 +159,6 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
                 {item.label}
               </span>
             </div>
-            {/* ✅ Chevron với animation */}
             <ChevronDown 
               className={`flex-shrink-0 w-4 h-4 text-slate-400 transition-all duration-200 ${
                 isExpanded ? 'rotate-180' : ''
@@ -136,9 +175,15 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
           >
             <div className="flex items-center gap-3">
               <div className={`flex-shrink-0 flex items-center justify-center ${iconSize} rounded-lg transition-colors ${getIconStyles()}`}>
-                <Icon className={iconInnerSize} />
+                {isProjectItem ? (
+                  // Project badge với 2 chữ cái
+                  <div className="w-full h-full flex items-center justify-center text-[10px] font-bold">
+                    {item.label.substring(0, 2).toUpperCase()}
+                  </div>
+                ) : (
+                  <Icon className={iconInnerSize} />
+                )}
               </div>
-              {/* ✅ Text với animation mượt */}
               <span 
                 className={`font-medium whitespace-nowrap overflow-hidden transition-all duration-200 ${fontSize} ${
                   showText && !isCollapsed 
@@ -149,7 +194,6 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
                 {item.label}
               </span>
             </div>
-            {/* ✅ Active dot */}
             {active && (
               <div className={`flex-shrink-0 w-1.5 h-1.5 rounded-full bg-white transition-opacity duration-200 ${
                 showText && !isCollapsed ? 'opacity-100' : 'opacity-0'
@@ -163,7 +207,28 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
           <div className={`mt-1 space-y-1 overflow-hidden transition-all duration-200 ${
             depth === 0 ? 'ml-6 pl-3 border-l-2 border-slate-200' : 'ml-4 pl-2 border-l border-slate-200'
           }`}>
-            {item.children!.map(child => renderMenuItem(child, depth + 1))}
+            {/* Nếu là menu "Quản lý dự án" */}
+            {item.href === '/dashboard/projects' ? (
+              <>
+                {projectsLoading && (
+                  <div className="flex items-center gap-2 px-2 py-2 text-slate-400 text-xs">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Đang tải dự án...</span>
+                  </div>
+                )}
+                {!projectsLoading && projects.length === 0 && (
+                  <div className="px-2 py-2 text-slate-400 text-xs">
+                    Không có dự án
+                  </div>
+                )}
+                {!projectsLoading && projects.length > 0 && 
+                  item.children!.map(child => renderMenuItem(child, depth + 1, item.href))
+                }
+              </>
+            ) : (
+              // Render children bình thường cho menu khác
+              item.children!.map(child => renderMenuItem(child, depth + 1, item.href))
+            )}
           </div>
         )}
       </div>
