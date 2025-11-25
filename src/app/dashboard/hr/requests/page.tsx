@@ -1,539 +1,643 @@
-"use client";
+// src/app/dashboard/hr/requests/page.tsx
+'use client';
 
-import React, { useState } from 'react';
-import { CheckCircle, XCircle, Eye, Search, Clock, AlertTriangle, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { notification } from 'antd';
+import { CheckSquare, Search, Plus, Edit, Trash2, Eye, Loader2, X, CheckCircle, XCircle, Clock, BarChart3, PieChart } from 'lucide-react';
+import { PieChart as RechartsPieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { 
+  leaveRequestService, 
+  LeaveRequest, 
+  CreateLeaveRequestDto, 
+  UpdateLeaveRequestDto,
+  LeaveType,
+  LeaveStatus 
+} from '@/lib/api/services/leave-request.service';
+import { useAuth } from '@/hooks/useAuth';
+import { UserRole } from '@/lib/constants/roles';
 
-interface ManagerRequest {
-  id: number;
-  requesterName: string;
-  requesterCode: string;
-  requesterDepartment: string;
-  requestType: 'PURCHASE' | 'REPAIR' | 'MAINTENANCE';
-  assetNameSuggest?: string;
-  categoryName?: string;
-  assetId?: number;
-  assetCode?: string;
-  assetName?: string;
-  quantity?: number;
-  reason: string;
-  requestDate: string;
-  neededDate: string;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'IN_PROGRESS' | 'COMPLETED';
-  estimatedCost?: number;
-  imageUrl?: string;
-  approvalDate?: string | null;
-  approverName?: string | null;
-  approvalNote?: string;
-  rejectionReason?: string;
-  startDate?: string;
-  completionDate?: string;
-  actualCost?: number;
-  resultNote?: string;
-}
+const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
+  [LeaveType.ANNUAL]: 'Nghỉ phép năm',
+  [LeaveType.SICK]: 'Nghỉ ốm',
+  [LeaveType.PERSONAL]: 'Nghỉ cá nhân',
+  [LeaveType.MATERNITY]: 'Nghỉ thai sản',
+  [LeaveType.PATERNITY]: 'Nghỉ thai sản (nam)',
+  [LeaveType.UNPAID]: 'Nghỉ không lương',
+  [LeaveType.OTHER]: 'Khác',
+};
 
-interface ApprovalForm {
-  approvalNote: string;
-  rejectionReason: string;
-  estimatedCost: string;
-  supplierId: string;
-  startDate: string;
-}
+export default function RequestsPage() {
+  const { hasRole, user } = useAuth();
+  const [api, contextHolder] = notification.useNotification();
 
-const ManagerRequestSystem: React.FC = () => {
-  const [currentView, setCurrentView] = useState<'pending-requests' | 'all-requests'>('pending-requests');
-  const [selectedRequest, setSelectedRequest] = useState<ManagerRequest | null>(null);
-  const [showDetailModal, setShowDetailModal] = useState<boolean>(false);
-  const [showApprovalModal, setShowApprovalModal] = useState<boolean>(false);
-  const [approvalAction, setApprovalAction] = useState<'approve' | 'reject'>('approve');
-  
-  const currentManager = {
-    id: 2,
-    name: 'Trần Văn B',
-    code: 'QL001',
-    department: 'IT',
-    role: 'MANAGER'
-  };
-
-  const [filterStatus, setFilterStatus] = useState<string>('ALL');
-  const [filterType, setFilterType] = useState<string>('ALL');
-  const [filterPriority, setFilterPriority] = useState<string>('ALL');
-  const [searchTerm, setSearchTerm] = useState<string>('');
-
-  const [requests, setRequests] = useState<ManagerRequest[]>([
-    {
-      id: 1,
-      requesterName: 'Nguyễn Văn A',
-      requesterCode: 'NV001',
-      requesterDepartment: 'IT',
-      requestType: 'PURCHASE',
-      assetNameSuggest: 'Màn hình Dell 27 inch 4K',
-      categoryName: 'Thiết bị văn phòng',
-      quantity: 1,
-      reason: 'Cần màn hình phụ để làm việc với nhiều cửa sổ đồng thời, tăng hiệu quả công việc',
-      requestDate: '2024-10-15',
-      neededDate: '2024-11-01',
-      priority: 'MEDIUM',
-      status: 'PENDING',
-      estimatedCost: 8000000
-    },
-    {
-      id: 2,
-      requesterName: 'Nguyễn Văn A',
-      requesterCode: 'NV001',
-      requesterDepartment: 'IT',
-      requestType: 'REPAIR',
-      assetId: 1,
-      assetCode: 'MT001',
-      assetName: 'Laptop Dell XPS 15',
-      reason: 'Bàn phím bị lỗi một số phím không nhận, ảnh hưởng đến công việc',
-      requestDate: '2024-10-20',
-      neededDate: '2024-10-25',
-      priority: 'HIGH',
-      status: 'PENDING',
-      estimatedCost: 2000000
-    },
-    {
-      id: 3,
-      requesterName: 'Lê Thị C',
-      requesterCode: 'NV002',
-      requesterDepartment: 'Marketing',
-      requestType: 'PURCHASE',
-      assetNameSuggest: 'MacBook Pro M3 14 inch',
-      categoryName: 'Máy tính',
-      quantity: 1,
-      reason: 'Làm công việc thiết kế đồ họa, cần máy cấu hình mạnh',
-      requestDate: '2024-10-18',
-      neededDate: '2024-11-15',
-      priority: 'HIGH',
-      status: 'PENDING',
-      estimatedCost: 45000000
-    },
-    {
-      id: 4,
-      requesterName: 'Phạm Văn D',
-      requesterCode: 'NV003',
-      requesterDepartment: 'Kế toán',
-      requestType: 'MAINTENANCE',
-      assetId: 5,
-      assetCode: 'MT005',
-      assetName: 'Máy in HP LaserJet Pro',
-      reason: 'Bảo dưỡng định kỳ 6 tháng theo quy định',
-      requestDate: '2024-10-19',
-      neededDate: '2024-11-10',
-      priority: 'LOW',
-      status: 'PENDING',
-      estimatedCost: 500000
-    },
-    {
-      id: 5,
-      requesterName: 'Hoàng Thị E',
-      requesterCode: 'NV004',
-      requesterDepartment: 'HR',
-      requestType: 'PURCHASE',
-      assetNameSuggest: 'Bộ bàn ghế văn phòng ergonomic',
-      categoryName: 'Bàn ghế',
-      quantity: 1,
-      reason: 'Ghế hiện tại gây đau lưng, cần thay thế để đảm bảo sức khỏe',
-      requestDate: '2024-10-21',
-      neededDate: '2024-11-20',
-      priority: 'MEDIUM',
-      status: 'PENDING',
-      estimatedCost: 5000000
-    },
-    {
-      id: 6,
-      requesterName: 'Nguyễn Văn A',
-      requesterCode: 'NV001',
-      requesterDepartment: 'IT',
-      requestType: 'PURCHASE',
-      assetNameSuggest: 'Màn hình Dell 24 inch',
-      categoryName: 'Thiết bị văn phòng',
-      quantity: 1,
-      reason: 'Đã được phê duyệt, đang chờ mua sắm',
-      requestDate: '2024-09-15',
-      neededDate: '2024-10-01',
-      priority: 'MEDIUM',
-      status: 'APPROVED',
-      approvalDate: '2024-09-16',
-      approverName: 'Trần Văn B',
-      approvalNote: 'Đồng ý cấp phát. Liên hệ nhà cung cấp Dell'
-    },
-    {
-      id: 7,
-      requesterName: 'Lê Thị C',
-      requesterCode: 'NV002',
-      requesterDepartment: 'Marketing',
-      requestType: 'REPAIR',
-      assetId: 3,
-      assetCode: 'MT003',
-      assetName: 'iMac 27 inch',
-      reason: 'Màn hình bị nhòe, cần kiểm tra',
-      requestDate: '2024-10-10',
-      neededDate: '2024-10-20',
-      priority: 'LOW',
-      status: 'REJECTED',
-      approvalDate: '2024-10-11',
-      approverName: 'Trần Văn B',
-      rejectionReason: 'Thiết bị còn trong thời gian bảo hành, vui lòng liên hệ bảo hành'
-    }
-  ]);
-
-  const [approvalForm, setApprovalForm] = useState<ApprovalForm>({
-    approvalNote: '',
-    rejectionReason: '',
-    estimatedCost: '',
-    supplierId: '',
-    startDate: ''
+  // States
+  const [requests, setRequests] = useState<LeaveRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view' | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
+  const [formSubmitting, setFormSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [filterStatus, setFilterStatus] = useState<LeaveStatus | undefined>(undefined);
+  const [filterStartDate, setFilterStartDate] = useState<string>('');
+  const [filterEndDate, setFilterEndDate] = useState<string>('');
+  const [formData, setFormData] = useState<CreateLeaveRequestDto>({
+    type: LeaveType.ANNUAL,
+    start_date: '',
+    end_date: '',
+    total_days: undefined,
+    reason: '',
   });
+  const [allRequests, setAllRequests] = useState<LeaveRequest[]>([]);
+  const [statsLoading, setStatsLoading] = useState(false);
 
-  const requestTypes: Record<string, string> = {
-    PURCHASE: 'Cấp mới',
-    REPAIR: 'Sửa chữa',
-    MAINTENANCE: 'Bảo trì'
-  };
+  // Check if user is employee (can only see their own requests)
+  const isEmployee = hasRole(UserRole.EMPLOYEE) && !hasRole(UserRole.MANAGER) && !hasRole(UserRole.SUPER_ADMIN);
+  const canManage = hasRole(UserRole.MANAGER) || hasRole(UserRole.SUPER_ADMIN);
 
-  const statusLabels: Record<string, string> = {
-    PENDING: 'Chờ duyệt',
-    APPROVED: 'Đã duyệt',
-    REJECTED: 'Từ chối',
-    IN_PROGRESS: 'Đang xử lý',
-    COMPLETED: 'Hoàn thành'
-  };
+  // Fetch requests với debounce
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchRequests();
+    }, 300);
 
-  const priorityLabels: Record<string, string> = {
-    LOW: 'Thấp',
-    MEDIUM: 'Trung bình',
-    HIGH: 'Cao',
-    URGENT: 'Khẩn cấp'
-  };
+    return () => clearTimeout(timeoutId);
+  }, [page, search, filterStatus, filterStartDate, filterEndDate]);
 
-  const getStatusColor = (status: string): string => {
-    const colors: Record<string, string> = {
-      PENDING: 'bg-yellow-100 text-yellow-800',
-      APPROVED: 'bg-green-100 text-green-800',
-      REJECTED: 'bg-red-100 text-red-800',
-      IN_PROGRESS: 'bg-blue-100 text-blue-800',
-      COMPLETED: 'bg-gray-100 text-gray-800'
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  const getPriorityColor = (priority: string): string => {
-    const colors: Record<string, string> = {
-      LOW: 'bg-green-100 text-green-800',
-      MEDIUM: 'bg-blue-100 text-blue-800',
-      HIGH: 'bg-orange-100 text-orange-800',
-      URGENT: 'bg-red-100 text-red-800'
-    };
-    return colors[priority] || 'bg-gray-100 text-gray-800';
-  };
-
-  const handleApproveRequest = (): void => {
-    if (!approvalForm.approvalNote) {
-      alert('Vui lòng nhập ghi chú phê duyệt!');
-      return;
+  useEffect(() => {
+    // Set default dates only on client side
+    if (typeof window !== 'undefined' && !formData.start_date) {
+      const today = new Date().toISOString().split('T')[0];
+      setFormData(prev => ({
+        ...prev,
+        start_date: today,
+        end_date: today,
+      }));
     }
+  }, []);
 
-    if (!selectedRequest) return;
+  // Fetch all requests for statistics
+  useEffect(() => {
+    fetchAllRequestsForStats();
+  }, []);
 
-    const updatedRequests = requests.map(req => {
-      if (req.id === selectedRequest.id) {
-        return {
-          ...req,
-          status: 'APPROVED' as const,
-          approvalDate: new Date().toISOString().split('T')[0],
-          approverName: currentManager.name,
-          approvalNote: approvalForm.approvalNote,
-          estimatedCost: approvalForm.estimatedCost ? parseInt(approvalForm.estimatedCost) : req.estimatedCost
-        };
+  const fetchAllRequestsForStats = async () => {
+    setStatsLoading(true);
+    try {
+      const params: any = { pageSize: 1000 };
+      if (isEmployee && user?.id) {
+        params.employeeId = user.id;
       }
-      return req;
-    });
-
-    setRequests(updatedRequests);
-    setShowApprovalModal(false);
-    setShowDetailModal(false);
-    alert('Đã phê duyệt yêu cầu thành công!');
-    resetApprovalForm();
-  };
-
-  const handleRejectRequest = (): void => {
-    if (!approvalForm.rejectionReason) {
-      alert('Vui lòng nhập lý do từ chối!');
-      return;
+      const data = await leaveRequestService.getAll(params);
+      setAllRequests(data.data);
+    } catch (err: any) {
+      console.error('Error fetching all requests for stats:', err);
+    } finally {
+      setStatsLoading(false);
     }
+  };
 
-    if (!selectedRequest) return;
+  const fetchRequests = async () => {
+    setLoading(true);
+    setError('');
 
-    const updatedRequests = requests.map(req => {
-      if (req.id === selectedRequest.id) {
-        return {
-          ...req,
-          status: 'REJECTED' as const,
-          approvalDate: new Date().toISOString().split('T')[0],
-          approverName: currentManager.name,
-          rejectionReason: approvalForm.rejectionReason
-        };
+    try {
+      const params: any = {
+        page,
+        pageSize,
+      };
+
+      if (isEmployee && user?.id) {
+        params.employeeId = user.id;
       }
-      return req;
-    });
+      if (filterStatus) {
+        params.status = filterStatus;
+      }
+      if (filterStartDate) {
+        params.startDate = filterStartDate;
+      }
+      if (filterEndDate) {
+        params.endDate = filterEndDate;
+      }
 
-    setRequests(updatedRequests);
-    setShowApprovalModal(false);
-    setShowDetailModal(false);
-    alert('Đã từ chối yêu cầu!');
-    resetApprovalForm();
+      const data = await leaveRequestService.getAll(params);
+      setRequests(data.data);
+      setTotal(data.total);
+      setTotalPages(data.totalPages);
+    } catch (err: any) {
+      console.error('Error fetching requests:', err);
+      setError(err.response?.data?.message || 'Không thể tải danh sách yêu cầu');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const resetApprovalForm = (): void => {
-    setApprovalForm({
-      approvalNote: '',
-      rejectionReason: '',
-      estimatedCost: '',
-      supplierId: '',
-      startDate: ''
+  const showNotification = (
+    type: 'success' | 'error' | 'info' | 'warning',
+    message: string,
+    description?: string,
+  ) => {
+    api[type]({
+      message,
+      description,
+      placement: 'topRight',
     });
   };
 
-  const openApprovalModal = (request: ManagerRequest, action: 'approve' | 'reject'): void => {
-    setSelectedRequest(request);
-    setApprovalAction(action);
-    setApprovalForm({
-      ...approvalForm,
-      estimatedCost: request.estimatedCost?.toString() || ''
-    });
-    setShowApprovalModal(true);
+  const handleDelete = async (id: number) => {
+    if (!confirm('Bạn có chắc muốn xóa yêu cầu này?')) return;
+
+    try {
+      await leaveRequestService.delete(id);
+      fetchRequests();
+      showNotification('success', 'Xóa yêu cầu thành công!');
+    } catch (err: any) {
+      console.error('Error deleting request:', err);
+      showNotification('error', 'Không thể xóa yêu cầu', err.response?.data?.message);
+    }
   };
 
-  const filteredRequests = requests.filter(req => {
-    const matchStatus = filterStatus === 'ALL' || req.status === filterStatus;
-    const matchType = filterType === 'ALL' || req.requestType === filterType;
-    const matchPriority = filterPriority === 'ALL' || req.priority === filterPriority;
-    const matchSearch = searchTerm === '' || 
-      req.requesterName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.requesterCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (req.assetName && req.assetName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (req.assetNameSuggest && req.assetNameSuggest.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    return matchStatus && matchType && matchPriority && matchSearch;
-  });
+  const handleApprove = async (id: number) => {
+    try {
+      setFormSubmitting(true);
+      await leaveRequestService.approve(id);
+      showNotification('success', 'Phê duyệt yêu cầu thành công!');
+      fetchRequests();
+    } catch (err: any) {
+      showNotification('error', 'Không thể phê duyệt yêu cầu', err.response?.data?.message);
+    } finally {
+      setFormSubmitting(false);
+    }
+  };
 
-  const pendingRequests = requests.filter(r => r.status === 'PENDING');
-  const approvedRequests = requests.filter(r => r.status === 'APPROVED');
-  const rejectedRequests = requests.filter(r => r.status === 'REJECTED');
-  const highPriorityPending = requests.filter(r => r.status === 'PENDING' && (r.priority === 'HIGH' || r.priority === 'URGENT'));
+  const handleReject = async (id: number) => {
+    try {
+      setFormSubmitting(true);
+      await leaveRequestService.reject(id);
+      showNotification('success', 'Từ chối yêu cầu thành công!');
+      fetchRequests();
+    } catch (err: any) {
+      showNotification('error', 'Không thể từ chối yêu cầu', err.response?.data?.message);
+    } finally {
+      setFormSubmitting(false);
+    }
+  };
 
-  const displayedRequests = filteredRequests.filter(req => 
-    currentView === 'pending-requests' ? req.status === 'PENDING' : true
-  );
+  const handleCancel = async (id: number) => {
+    if (!confirm('Bạn có chắc muốn hủy yêu cầu này?')) return;
+
+    try {
+      setFormSubmitting(true);
+      await leaveRequestService.cancel(id);
+      showNotification('success', 'Hủy yêu cầu thành công!');
+      fetchRequests();
+    } catch (err: any) {
+      showNotification('error', 'Không thể hủy yêu cầu', err.response?.data?.message);
+    } finally {
+      setFormSubmitting(false);
+    }
+  };
+
+  const openCreateModal = () => {
+    setModalMode('create');
+    const today = typeof window !== 'undefined' ? new Date().toISOString().split('T')[0] : '';
+    setFormData({
+      type: LeaveType.ANNUAL,
+      start_date: today,
+      end_date: today,
+      total_days: undefined,
+      reason: '',
+    });
+    setFormError('');
+  };
+
+  const openEditModal = async (requestId: number) => {
+    setFormError('');
+    try {
+      setFormSubmitting(true);
+      const request = await leaveRequestService.getById(requestId);
+      setSelectedRequest(request);
+      setFormData({
+        type: request.type,
+        start_date: request.start_date,
+        end_date: request.end_date,
+        total_days: request.total_days || undefined,
+        reason: request.reason || '',
+      });
+      setModalMode('edit');
+    } catch (err: any) {
+      showNotification('error', 'Không thể tải chi tiết yêu cầu', err.response?.data?.message);
+    } finally {
+      setFormSubmitting(false);
+    }
+  };
+
+  const openViewModal = async (requestId: number) => {
+    setFormError('');
+    try {
+      setFormSubmitting(true);
+      const request = await leaveRequestService.getById(requestId);
+      setSelectedRequest(request);
+      setModalMode('view');
+    } catch (err: any) {
+      showNotification('error', 'Không thể tải chi tiết yêu cầu', err.response?.data?.message);
+    } finally {
+      setFormSubmitting(false);
+    }
+  };
+
+  const closeModal = () => {
+    setModalMode(null);
+    setSelectedRequest(null);
+    setFormError('');
+  };
+
+  // Function to calculate days between two dates
+  const calculateDays = (startDate: string, endDate: string): number => {
+    if (!startDate || !endDate) return 0;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (end < start) return 0;
+    const diffTime = end.getTime() - start.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end days
+    return diffDays;
+  };
+
+  // Auto calculate days when dates change
+  useEffect(() => {
+    if ((modalMode === 'create' || modalMode === 'edit') && formData.start_date && formData.end_date) {
+      const calculatedDays = calculateDays(formData.start_date, formData.end_date);
+      if (calculatedDays > 0) {
+        setFormData(prev => {
+          // Only update if the calculated value is different to avoid infinite loop
+          if (prev.total_days !== calculatedDays) {
+            return { ...prev, total_days: calculatedDays };
+          }
+          return prev;
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.start_date, formData.end_date, modalMode]);
+
+  const handleFormChange = (field: keyof CreateLeaveRequestDto, value: string | number | LeaveType) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modalMode || modalMode === 'view') return;
+
+    setFormSubmitting(true);
+    setFormError('');
+
+    const payload: CreateLeaveRequestDto | UpdateLeaveRequestDto = {
+      ...formData,
+      total_days: formData.total_days || undefined,
+    };
+
+    try {
+      if (modalMode === 'create') {
+        await leaveRequestService.create(payload as CreateLeaveRequestDto);
+        showNotification('success', 'Tạo yêu cầu thành công');
+      } else if (modalMode === 'edit' && selectedRequest) {
+        await leaveRequestService.update(selectedRequest.id, payload as UpdateLeaveRequestDto);
+        showNotification('success', 'Cập nhật yêu cầu thành công');
+      }
+      closeModal();
+      fetchRequests();
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại';
+      setFormError(Array.isArray(message) ? message.join(', ') : message);
+    } finally {
+      setFormSubmitting(false);
+    }
+  };
+
+  const getStatusBadge = (status: LeaveStatus) => {
+    const statusMap: Record<LeaveStatus, { bg: string; text: string; label: string; icon: any }> = {
+      [LeaveStatus.PENDING]: { 
+        bg: 'bg-yellow-100', 
+        text: 'text-yellow-700', 
+        label: 'Chờ duyệt',
+        icon: Clock,
+      },
+      [LeaveStatus.APPROVED]: { 
+        bg: 'bg-green-100', 
+        text: 'text-green-700', 
+        label: 'Đã duyệt',
+        icon: CheckCircle,
+      },
+      [LeaveStatus.REJECTED]: { 
+        bg: 'bg-red-100', 
+        text: 'text-red-700', 
+        label: 'Từ chối',
+        icon: XCircle,
+      },
+      [LeaveStatus.CANCELLED]: { 
+        bg: 'bg-gray-100', 
+        text: 'text-gray-700', 
+        label: 'Đã hủy',
+        icon: X,
+      },
+    };
+    const style = statusMap[status] || statusMap[LeaveStatus.PENDING];
+    const Icon = style.icon;
+    return (
+      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
+        <Icon className="w-3 h-3" />
+        {style.label}
+      </span>
+    );
+  };
+
+  const formatDate = (dateString: string) => {
+    if (typeof window === 'undefined') return dateString;
+    try {
+      return new Date(dateString).toLocaleDateString('vi-VN');
+    } catch {
+      return dateString;
+    }
+  };
+
+  // Calculate request statistics
+  const calculateRequestStats = () => {
+    const statusCount: Record<LeaveStatus, number> = {
+      [LeaveStatus.PENDING]: 0,
+      [LeaveStatus.APPROVED]: 0,
+      [LeaveStatus.REJECTED]: 0,
+      [LeaveStatus.CANCELLED]: 0,
+    };
+    const typeCount: Record<LeaveType, number> = {
+      [LeaveType.ANNUAL]: 0,
+      [LeaveType.SICK]: 0,
+      [LeaveType.PERSONAL]: 0,
+      [LeaveType.MATERNITY]: 0,
+      [LeaveType.PATERNITY]: 0,
+      [LeaveType.UNPAID]: 0,
+      [LeaveType.OTHER]: 0,
+    };
+    let totalDays = 0;
+
+    allRequests.forEach(req => {
+      statusCount[req.status]++;
+      typeCount[req.type]++;
+      if (req.total_days) {
+        totalDays += req.total_days;
+      }
+    });
+
+    const statusData = Object.entries(statusCount)
+      .filter(([_, value]) => value > 0)
+      .map(([status, value]) => ({
+        name: status === LeaveStatus.PENDING ? 'Chờ duyệt' :
+              status === LeaveStatus.APPROVED ? 'Đã duyệt' :
+              status === LeaveStatus.REJECTED ? 'Từ chối' : 'Đã hủy',
+        value,
+      }));
+
+    const typeData = Object.entries(typeCount)
+      .filter(([_, value]) => value > 0)
+      .map(([type, value]) => ({
+        name: LEAVE_TYPE_LABELS[type as LeaveType],
+        value,
+      }))
+      .sort((a, b) => b.value - a.value);
+
+    return {
+      statusData,
+      typeData,
+      totalDays: Number(Number(totalDays ?? 0).toFixed(1)),
+      totalRequests: allRequests.length,
+      approvedRate: allRequests.length > 0 
+        ? Number(((statusCount[LeaveStatus.APPROVED] / allRequests.length) * 100).toFixed(1))
+        : 0,
+    };
+  };
+
+  const requestStats = calculateRequestStats();
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="space-y-6">
+      {contextHolder}
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex justify-between items-center">
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-blue-100 rounded-lg">
+              <CheckSquare className="w-6 h-6 text-blue-600" />
+            </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">Quản lý Yêu cầu</h1>
-              <p className="text-sm text-gray-600 mt-1">{currentManager.name} - {currentManager.code}</p>
-            </div>
-            <div className="text-right">
-              <div className="text-sm text-gray-500">Chờ duyệt</div>
-              <div className="text-3xl font-bold text-yellow-600">{pendingRequests.length}</div>
+              <h1 className="text-2xl font-bold text-gray-900">Quản lý yêu cầu nghỉ phép</h1>
+              <p className="text-sm text-gray-500">Tổng số: {total} yêu cầu</p>
             </div>
           </div>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500">Chờ duyệt</p>
-                <p className="text-2xl font-bold text-yellow-600">{pendingRequests.length}</p>
-              </div>
-              <Clock className="text-yellow-600" size={28} />
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500">Đã duyệt</p>
-                <p className="text-2xl font-bold text-green-600">{approvedRequests.length}</p>
-              </div>
-              <CheckCircle className="text-green-600" size={28} />
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500">Từ chối</p>
-                <p className="text-2xl font-bold text-red-600">{rejectedRequests.length}</p>
-              </div>
-              <XCircle className="text-red-600" size={28} />
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500">Ưu tiên cao</p>
-                <p className="text-2xl font-bold text-orange-600">{highPriorityPending.length}</p>
-              </div>
-              <AlertTriangle className="text-orange-600" size={28} />
-            </div>
-          </div>
-        </div>
-
-        {/* View Toggle */}
-        <div className="bg-white rounded-lg shadow-sm p-3 mb-4">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setCurrentView('pending-requests')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm ${
-                currentView === 'pending-requests'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <Clock size={18} />
-              Chờ duyệt ({pendingRequests.length})
-            </button>
-            <button
-              onClick={() => setCurrentView('all-requests')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm ${
-                currentView === 'all-requests'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Tất cả yêu cầu
-            </button>
-          </div>
+          <button
+            onClick={openCreateModal}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Tạo yêu cầu
+          </button>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
-          <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Trạng thái</label>
+            <select
+              value={filterStatus || ''}
+              onChange={(e) => setFilterStatus(e.target.value ? (e.target.value as LeaveStatus) : undefined)}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            >
+              <option value="">Tất cả</option>
+              <option value={LeaveStatus.PENDING}>Chờ duyệt</option>
+              <option value={LeaveStatus.APPROVED}>Đã duyệt</option>
+              <option value={LeaveStatus.REJECTED}>Từ chối</option>
+              <option value={LeaveStatus.CANCELLED}>Đã hủy</option>
+            </select>
+          </div>
+              <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Từ ngày</label>
+            <input
+              type="date"
+              value={filterStartDate}
+              onChange={(e) => setFilterStartDate(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            />
+          </div>
+              <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Đến ngày</label>
+            <input
+              type="date"
+              value={filterEndDate}
+              onChange={(e) => setFilterEndDate(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            />
+          </div>
+              <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tìm kiếm</label>
             <div className="relative">
-              <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
                 placeholder="Tìm kiếm..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-lg"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
               />
             </div>
-            {currentView === 'all-requests' && (
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
-              >
-                <option value="ALL">Tất cả trạng thái</option>
-                <option value="PENDING">Chờ duyệt</option>
-                <option value="APPROVED">Đã duyệt</option>
-                <option value="REJECTED">Từ chối</option>
-              </select>
-            )}
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
-            >
-              <option value="ALL">Tất cả loại</option>
-              <option value="PURCHASE">Cấp mới</option>
-              <option value="REPAIR">Sửa chữa</option>
-              <option value="MAINTENANCE">Bảo trì</option>
-            </select>
-            <select
-              value={filterPriority}
-              onChange={(e) => setFilterPriority(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-lg"
-            >
-              <option value="ALL">Tất cả ưu tiên</option>
-              <option value="URGENT">Khẩn cấp</option>
-              <option value="HIGH">Cao</option>
-              <option value="MEDIUM">Trung bình</option>
-              <option value="LOW">Thấp</option>
-            </select>
           </div>
         </div>
+      </div>
 
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <p className="text-red-600 text-sm">{error}</p>
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading ? (
+        <div className="bg-white rounded-xl shadow-sm p-12">
+          <div className="flex flex-col items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+            <p className="text-gray-600">Đang tải dữ liệu...</p>
+          </div>
+        </div>
+      ) : (
+        <>
         {/* Table */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nhân viên</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Loại</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tài sản</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ngày YC</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ưu tiên</th>
-                  {currentView === 'all-requests' && (
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
-                  )}
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thao tác</th>
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    {canManage && (
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Nhân viên
+                      </th>
+                    )}
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+                      Loại
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+                      Từ ngày
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+                      Đến ngày
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+                      Số ngày
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+                      Trạng thái
+                    </th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase">
+                      Thao tác
+                    </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {displayedRequests.map(request => (
-                  <tr key={request.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="text-sm font-medium text-gray-900">{request.requesterName}</div>
-                      <div className="text-xs text-gray-500">{request.requesterCode}</div>
-                    </td>
-                    <td className="px-4 py-3 text-sm">{requestTypes[request.requestType]}</td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
-                        {request.assetName || request.assetNameSuggest}
-                      </div>
-                      {request.assetCode && <div className="text-xs text-gray-500">{request.assetCode}</div>}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{request.requestDate}</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getPriorityColor(request.priority)}`}>
-                        {priorityLabels[request.priority]}
-                      </span>
-                    </td>
-                    {currentView === 'all-requests' && (
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(request.status)}`}>
-                          {statusLabels[request.status]}
-                        </span>
+                  {requests.map((req) => (
+                    <tr key={req.id} className="hover:bg-gray-50 transition-colors">
+                      {canManage && (
+                        <td className="px-6 py-4">
+                          <p className="font-medium text-gray-900">
+                            {req.employee?.full_name || 'N/A'}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {req.employee?.employee_code || ''}
+                          </p>
+                        </td>
+                      )}
+                      <td className="px-6 py-4">
+                        <p className="text-sm text-gray-900">{LEAVE_TYPE_LABELS[req.type] || req.type}</p>
                       </td>
-                    )}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                      <td className="px-6 py-4">
+                        <p className="text-sm text-gray-900">{formatDate(req.start_date)}</p>
+                    </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm text-gray-900">{formatDate(req.end_date)}</p>
+                    </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm text-gray-900">
+                          {req.total_days ? `${req.total_days} ngày` : 'N/A'}
+                        </p>
+                    </td>
+                      <td className="px-6 py-4">
+                        {getStatusBadge(req.status)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => openViewModal(req.id)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Xem chi tiết"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          {req.status === LeaveStatus.PENDING && (
+                            <>
+                              {canManage && (
+                                <>
+                                  <button
+                                    onClick={() => handleApprove(req.id)}
+                                    disabled={formSubmitting}
+                                    className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+                                    title="Phê duyệt"
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleReject(req.id)}
+                                    disabled={formSubmitting}
+                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                                    title="Từ chối"
+                                  >
+                                    <XCircle className="w-4 h-4" />
+                                  </button>
+                                </>
+                              )}
+                              {!canManage && (
                         <button
-                          onClick={() => {
-                            setSelectedRequest(request);
-                            setShowDetailModal(true);
-                          }}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Chi tiết"
-                        >
-                          <Eye size={18} />
+                                  onClick={() => handleCancel(req.id)}
+                                  disabled={formSubmitting}
+                                  className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors disabled:opacity-50"
+                                  title="Hủy yêu cầu"
+                                >
+                                  <X className="w-4 h-4" />
                         </button>
-                        {request.status === 'PENDING' && (
-                          <>
+                              )}
+                            </>
+                          )}
+                          {canManage && (
                             <button
-                              onClick={() => openApprovalModal(request, 'approve')}
-                              className="text-green-600 hover:text-green-800"
-                              title="Duyệt"
+                              onClick={() => openEditModal(req.id)}
+                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                              title="Chỉnh sửa"
                             >
-                              <CheckCircle size={18} />
+                              <Edit className="w-4 h-4" />
                             </button>
+                          )}
+                          {canManage && (
                             <button
-                              onClick={() => openApprovalModal(request, 'reject')}
-                              className="text-red-600 hover:text-red-800"
-                              title="Từ chối"
+                              onClick={() => handleDelete(req.id)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Xóa"
                             >
-                              <XCircle size={18} />
+                              <Trash2 className="w-4 h-4" />
                             </button>
-                          </>
                         )}
                       </div>
                     </td>
@@ -541,229 +645,249 @@ const ManagerRequestSystem: React.FC = () => {
                 ))}
               </tbody>
             </table>
-            {displayedRequests.length === 0 && (
-              <div className="text-center py-8 text-gray-500">Không có yêu cầu nào</div>
+            </div>
+
+            {/* Empty State */}
+            {requests.length === 0 && !loading && (
+              <div className="text-center py-12">
+                <CheckSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg font-medium">Không tìm thấy yêu cầu</p>
+              </div>
             )}
           </div>
-        </div>
 
-        {/* Detail Modal */}
-        {showDetailModal && selectedRequest && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-4 border-b flex justify-between items-center">
-                <h2 className="text-lg font-bold">Chi tiết yêu cầu #{selectedRequest.id}</h2>
-                <button onClick={() => setShowDetailModal(false)}>
-                  <X size={20} />
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="bg-white rounded-xl shadow-sm p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-600">
+                  Hiển thị <span className="font-semibold">{requests.length}</span> / {total} yêu cầu
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPage(page - 1)}
+                    disabled={page === 1}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Trước
+                  </button>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (page <= 3) {
+                        pageNum = i + 1;
+                      } else if (page >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = page - 2 + i;
+                      }
+
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setPage(pageNum)}
+                          className={`w-10 h-10 rounded-lg font-medium transition-colors ${
+                            pageNum === page
+                              ? 'bg-blue-600 text-white'
+                              : 'hover:bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {pageNum}
                 </button>
-              </div>
-              <div className="p-4 space-y-3">
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500">Nhân viên</label>
-                    <p className="mt-1 text-gray-900">{selectedRequest.requesterName}</p>
-                    <p className="text-xs text-gray-500">{selectedRequest.requesterCode} - {selectedRequest.requesterDepartment}</p>
+                      );
+                    })}
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500">Loại yêu cầu</label>
-                    <p className="mt-1 text-gray-900">{requestTypes[selectedRequest.requestType]}</p>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500">Ngày yêu cầu</label>
-                    <p className="mt-1 text-gray-900">{selectedRequest.requestDate}</p>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500">Ngày cần</label>
-                    <p className="mt-1 text-gray-900">{selectedRequest.neededDate}</p>
-                  </div>
+                  <button
+                    onClick={() => setPage(page + 1)}
+                    disabled={page === totalPages}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Sau
+                  </button>
+                </div>
+                </div>
+                </div>
+          )}
+        </>
+      )}
+
+      {/* Modal */}
+      {modalMode && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">
+                {modalMode === 'create' && 'Tạo yêu cầu nghỉ phép'}
+                {modalMode === 'edit' && 'Chỉnh sửa yêu cầu'}
+                {modalMode === 'view' && 'Chi tiết yêu cầu'}
+              </h2>
+              <button
+                onClick={closeModal}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
                 </div>
 
-                <div className="text-sm">
-                  <label className="block text-xs font-medium text-gray-500">Tài sản</label>
-                  <p className="mt-1 text-gray-900 font-medium">
-                    {selectedRequest.assetName || selectedRequest.assetNameSuggest}
-                  </p>
-                  {selectedRequest.assetCode && (
-                    <p className="text-xs text-gray-500">Mã: {selectedRequest.assetCode}</p>
-                  )}
-                </div>
-
-                <div className="text-sm">
-                  <label className="block text-xs font-medium text-gray-500">Lý do</label>
-                  <p className="mt-1 text-gray-900">{selectedRequest.reason}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500">Ưu tiên</label>
-                    <span className={`inline-block mt-1 px-2 py-1 text-xs font-semibold rounded-full ${getPriorityColor(selectedRequest.priority)}`}>
-                      {priorityLabels[selectedRequest.priority]}
-                    </span>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500">Trạng thái</label>
-                    <span className={`inline-block mt-1 px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedRequest.status)}`}>
-                      {statusLabels[selectedRequest.status]}
-                    </span>
-                  </div>
-                </div>
-
-                {selectedRequest.estimatedCost && (
-                  <div className="text-sm">
-                    <label className="block text-xs font-medium text-gray-500">Chi phí ước tính</label>
-                    <p className="mt-1 text-gray-900">{selectedRequest.estimatedCost.toLocaleString('vi-VN')} VNĐ</p>
+            {formError && (
+              <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600 text-sm">{formError}</p>
                   </div>
                 )}
 
-                {selectedRequest.status !== 'PENDING' && (
-                  <div className="border-t pt-3">
-                    <h3 className="font-semibold text-sm mb-2">Thông tin phê duyệt</h3>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
+            {modalMode === 'view' && selectedRequest ? (
+              <div className="p-6 space-y-4">
+                <DetailField label="Nhân viên" value={selectedRequest.employee?.full_name || 'N/A'} />
+                <DetailField label="Loại nghỉ phép" value={LEAVE_TYPE_LABELS[selectedRequest.type] || selectedRequest.type} />
+                <DetailField label="Từ ngày" value={formatDate(selectedRequest.start_date)} />
+                <DetailField label="Đến ngày" value={formatDate(selectedRequest.end_date)} />
+                <DetailField label="Số ngày" value={selectedRequest.total_days ? `${selectedRequest.total_days} ngày` : 'N/A'} />
+                <DetailField label="Lý do" value={selectedRequest.reason || 'N/A'} />
                       <div>
-                        <label className="block text-xs font-medium text-gray-500">Người duyệt</label>
-                        <p className="mt-1 text-gray-900">{selectedRequest.approverName}</p>
+                  <p className="text-xs font-semibold text-gray-500 uppercase">Trạng thái</p>
+                  <div className="mt-1">{getStatusBadge(selectedRequest.status)}</div>
                       </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500">Ngày duyệt</label>
-                        <p className="mt-1 text-gray-900">{selectedRequest.approvalDate}</p>
-                      </div>
-                    </div>
-                    {selectedRequest.approvalNote && (
-                      <div className="mt-2 text-sm">
-                        <label className="block text-xs font-medium text-gray-500">Ghi chú</label>
-                        <p className="mt-1 text-gray-900">{selectedRequest.approvalNote}</p>
-                      </div>
-                    )}
-                    {selectedRequest.rejectionReason && (
-                      <div className="mt-2 text-sm">
-                        <label className="block text-xs font-medium text-gray-500">Lý do từ chối</label>
-                        <p className="mt-1 text-red-600">{selectedRequest.rejectionReason}</p>
-                      </div>
-                    )}
-                  </div>
+                {selectedRequest.approver && (
+                  <DetailField label="Người duyệt" value={selectedRequest.approver.full_name} />
                 )}
-              </div>
-              <div className="p-4 border-t flex justify-end gap-2">
-                {selectedRequest.status === 'PENDING' && (
-                  <>
-                    <button
-                      onClick={() => {
-                        setShowDetailModal(false);
-                        openApprovalModal(selectedRequest, 'approve');
-                      }}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
-                    >
-                      <CheckCircle size={16} className="inline mr-1" />
-                      Phê duyệt
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowDetailModal(false);
-                        openApprovalModal(selectedRequest, 'reject');
-                      }}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
-                    >
-                      <XCircle size={16} className="inline mr-1" />
-                      Từ chối
-                    </button>
-                  </>
+                {selectedRequest.approved_at && (
+                  <DetailField 
+                    label="Thời gian duyệt" 
+                    value={typeof window !== 'undefined' ? new Date(selectedRequest.approved_at).toLocaleString('vi-VN') : selectedRequest.approved_at} 
+                  />
                 )}
+                <div className="flex items-center justify-end pt-4 border-t">
                 <button
-                  onClick={() => setShowDetailModal(false)}
-                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 text-sm"
+                    onClick={closeModal}
+                    className="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
                 >
                   Đóng
                 </button>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Approval Modal */}
-        {showApprovalModal && selectedRequest && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-lg w-full">
-              <div className="p-4 border-b flex justify-between items-center">
-                <h2 className="text-lg font-bold">
-                  {approvalAction === 'approve' ? 'Phê duyệt yêu cầu' : 'Từ chối yêu cầu'}
-                </h2>
-                <button onClick={() => {
-                  setShowApprovalModal(false);
-                  resetApprovalForm();
-                }}>
-                  <X size={20} />
-                </button>
-              </div>
-              <div className="p-4 space-y-3">
-                <div className="bg-gray-50 p-3 rounded-lg text-sm">
-                  <p className="text-gray-600">Từ: <span className="font-medium text-gray-900">{selectedRequest.requesterName}</span></p>
-                  <p className="text-gray-600">Tài sản: <span className="font-medium text-gray-900">{selectedRequest.assetName || selectedRequest.assetNameSuggest}</span></p>
-                  <p className="text-gray-600">Loại: <span className="font-medium text-gray-900">{requestTypes[selectedRequest.requestType]}</span></p>
+            ) : (
+              <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Loại nghỉ phép <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.type}
+                    onChange={(e) => handleFormChange('type', e.target.value as LeaveType)}
+                    required
+                    disabled={formSubmitting}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
+                  >
+                    {Object.entries(LEAVE_TYPE_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                {approvalAction === 'approve' ? (
-                  <>
+                <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú phê duyệt *</label>
-                      <textarea
-                        value={approvalForm.approvalNote}
-                        onChange={(e) => setApprovalForm({...approvalForm, approvalNote: e.target.value})}
-                        rows={3}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                        placeholder="Nhập ghi chú..."
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Chi phí ước tính (VNĐ)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Từ ngày <span className="text-red-500">*</span>
+                    </label>
                       <input
-                        type="number"
-                        value={approvalForm.estimatedCost}
-                        onChange={(e) => setApprovalForm({...approvalForm, estimatedCost: e.target.value})}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                        placeholder="Nhập chi phí..."
+                      type="date"
+                      value={formData.start_date}
+                      onChange={(e) => handleFormChange('start_date', e.target.value)}
+                      required
+                      disabled={formSubmitting}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
                       />
                     </div>
-                  </>
-                ) : (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Lý do từ chối *</label>
-                    <textarea
-                      value={approvalForm.rejectionReason}
-                      onChange={(e) => setApprovalForm({...approvalForm, rejectionReason: e.target.value})}
-                      rows={4}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                      placeholder="Nhập lý do từ chối..."
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Đến ngày <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.end_date}
+                      onChange={(e) => handleFormChange('end_date', e.target.value)}
+                      required
+                      disabled={formSubmitting}
+                      min={formData.start_date}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Số ngày
+                    {formData.start_date && formData.end_date && (
+                      <span className="ml-2 text-xs text-gray-500 font-normal">
+                        (Tự động tính: {calculateDays(formData.start_date, formData.end_date)} ngày)
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={formData.total_days || ''}
+                    onChange={(e) => handleFormChange('total_days', e.target.value ? Number(e.target.value) : undefined)}
+                    disabled={formSubmitting}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100 bg-gray-50"
+                    placeholder="Tự động tính từ ngày bắt đầu và kết thúc"
+                    readOnly={!!(formData.start_date && formData.end_date)}
+                  />
+                  {formData.start_date && formData.end_date && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Số ngày sẽ tự động tính khi bạn chọn từ ngày và đến ngày
+                    </p>
                 )}
               </div>
-              <div className="p-4 border-t flex justify-end gap-2">
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Lý do</label>
+                  <textarea
+                    value={formData.reason}
+                    onChange={(e) => handleFormChange('reason', e.target.value)}
+                    disabled={formSubmitting}
+                    rows={4}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
+                    placeholder="Nhập lý do nghỉ phép..."
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t">
                 <button
-                  onClick={() => {
-                    setShowApprovalModal(false);
-                    resetApprovalForm();
-                  }}
-                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 text-sm"
+                    type="button"
+                    onClick={closeModal}
+                    className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   Hủy
                 </button>
                 <button
-                  onClick={approvalAction === 'approve' ? handleApproveRequest : handleRejectRequest}
-                  className={`px-4 py-2 text-white rounded-lg text-sm ${
-                    approvalAction === 'approve' 
-                      ? 'bg-green-600 hover:bg-green-700' 
-                      : 'bg-red-600 hover:bg-red-700'
-                  }`}
-                >
-                  {approvalAction === 'approve' ? 'Xác nhận phê duyệt' : 'Xác nhận từ chối'}
+                    type="submit"
+                    disabled={formSubmitting}
+                    className="px-6 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors disabled:opacity-60 flex items-center gap-2"
+                  >
+                    {formSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {modalMode === 'create' ? 'Tạo yêu cầu' : 'Lưu thay đổi'}
                 </button>
               </div>
+              </form>
+            )}
             </div>
           </div>
         )}
       </div>
+  );
+}
+
+function DetailField({ label, value }: { label: string; value: string | React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold text-gray-500 uppercase">{label}</p>
+      <p className="mt-1 text-gray-900">{value}</p>
     </div>
   );
-};
-
-export default ManagerRequestSystem;
+}

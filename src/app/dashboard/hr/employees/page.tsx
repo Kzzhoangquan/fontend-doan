@@ -15,8 +15,11 @@ import {
   Briefcase, 
   Loader2,
   X,
-  Shield
+  Shield,
+  BarChart3,
+  PieChart
 } from 'lucide-react';
+import { PieChart as RechartsPieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { employeeService, Employee } from '@/lib/api/services/employee.service';
 import { departmentService, Department } from '@/lib/api/services/department.service';
 import { positionService, Position } from '@/lib/api/services/position.service';
@@ -73,6 +76,9 @@ export default function EmployeesPage() {
     fetchReferenceOptions();
   }, []);
 
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
+  const [statsLoading, setStatsLoading] = useState(false);
+
   const fetchEmployees = async () => {
     setLoading(true);
     setError('');
@@ -94,6 +100,22 @@ export default function EmployeesPage() {
       setLoading(false);
     }
   };
+
+  const fetchAllEmployeesForStats = async () => {
+    setStatsLoading(true);
+    try {
+      const data = await employeeService.getAll({ pageSize: 1000 });
+      setAllEmployees(data.data);
+    } catch (err: any) {
+      console.error('Error fetching all employees for stats:', err);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAllEmployeesForStats();
+  }, []);
 
   const fetchReferenceOptions = async () => {
     setOptionsLoading(true);
@@ -157,6 +179,51 @@ export default function EmployeesPage() {
       </span>
     );
   };
+
+  // Calculate statistics
+  const calculateStats = () => {
+    const statusCount: Record<string, number> = {};
+    const departmentCount: Record<string, number> = {};
+    const roleCount: Record<string, number> = {};
+
+    allEmployees.forEach(emp => {
+      // Status stats
+      statusCount[emp.status] = (statusCount[emp.status] || 0) + 1;
+      
+      // Department stats
+      const dept = emp.department || 'Chưa phân công';
+      departmentCount[dept] = (departmentCount[dept] || 0) + 1;
+      
+      // Role stats
+      if (emp.roles && emp.roles.length > 0) {
+        emp.roles.forEach(role => {
+          roleCount[role.name] = (roleCount[role.name] || 0) + 1;
+        });
+      } else {
+        roleCount['Chưa có quyền'] = (roleCount['Chưa có quyền'] || 0) + 1;
+      }
+    });
+
+    const statusData = Object.entries(statusCount).map(([name, value]) => ({
+      name: name === 'ACTIVE' ? 'Hoạt động' : name === 'INACTIVE' ? 'Ngừng' : 'Tạm khóa',
+      value,
+    }));
+
+    const departmentData = Object.entries(departmentCount)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10); // Top 10 departments
+
+    const roleData = Object.entries(roleCount)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+
+    return { statusData, departmentData, roleData };
+  };
+
+  const { statusData, departmentData, roleData } = calculateStats();
+
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
 
   // Check permission
   const canManage = hasRole(UserRole.MANAGER) || hasRole(UserRole.SUPER_ADMIN);
@@ -310,6 +377,85 @@ export default function EmployeesPage() {
 
   return (
     <div className="space-y-6">
+      {contextHolder}
+      {/* Statistics Section */}
+      {!statsLoading && allEmployees.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Status Distribution */}
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <PieChart className="w-5 h-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Phân bố theo trạng thái</h3>
+            </div>
+            <ResponsiveContainer width="100%" height={250}>
+              <RechartsPieChart>
+                <Pie
+                  data={statusData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {statusData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </RechartsPieChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Department Distribution */}
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <BarChart3 className="w-5 h-5 text-purple-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Phân bố theo phòng ban</h3>
+            </div>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={departmentData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="name" 
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                  fontSize={12}
+                />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="value" fill="#8b5cf6" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Role Distribution */}
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Users className="w-5 h-5 text-green-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Phân bố theo vai trò</h3>
+            </div>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={roleData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="name" 
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                  fontSize={12}
+                />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="value" fill="#10b981" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white rounded-xl shadow-sm p-6">
         <div className="flex items-center justify-between mb-6">
@@ -345,8 +491,6 @@ export default function EmployeesPage() {
           />
         </div>
       </div>
-
-      {contextHolder}
 
       {/* Error Message */}
       {error && (

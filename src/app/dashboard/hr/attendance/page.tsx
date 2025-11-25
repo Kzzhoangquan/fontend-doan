@@ -3,7 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { notification } from 'antd';
-import { Calendar, Search, Plus, Edit, Trash2, Eye, Loader2, Clock, User } from 'lucide-react';
+import { Calendar, Search, Plus, Edit, Trash2, Eye, Loader2, Clock, User, BarChart3, TrendingUp, X, CheckCircle } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { attendanceService, Attendance, CreateAttendanceDto, UpdateAttendanceDto } from '@/lib/api/services/attendance.service';
 import { employeeService, Employee } from '@/lib/api/services/employee.service';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,13 +34,15 @@ export default function AttendancePage() {
   const [filterEndDate, setFilterEndDate] = useState<string>('');
   const [formData, setFormData] = useState<CreateAttendanceDto>({
     employee_id: 0,
-    date: new Date().toISOString().split('T')[0],
+    date: '',
     check_in: '',
     check_out: '',
     late_minutes: 0,
     early_leave_minutes: 0,
     note: '',
   });
+  const [allAttendances, setAllAttendances] = useState<Attendance[]>([]);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   // Check if user is employee (can only see their own attendance)
   const isEmployee = hasRole(UserRole.EMPLOYEE) && !hasRole(UserRole.MANAGER) && !hasRole(UserRole.SUPER_ADMIN);
@@ -54,12 +57,50 @@ export default function AttendancePage() {
     return () => clearTimeout(timeoutId);
   }, [page, search, filterEmployeeId, filterStartDate, filterEndDate]);
 
+  // Fetch all attendances for statistics
+  useEffect(() => {
+    fetchAllAttendancesForStats();
+  }, []);
+
+  const fetchAllAttendancesForStats = async () => {
+    setStatsLoading(true);
+    try {
+      const params: any = { pageSize: 1000 };
+      if (isEmployee && user?.id) {
+        params.employeeId = user.id;
+      }
+      if (filterStartDate) {
+        params.startDate = filterStartDate;
+      }
+      if (filterEndDate) {
+        params.endDate = filterEndDate;
+      }
+      const data = await attendanceService.getAll(params);
+      setAllAttendances(data.data);
+    } catch (err: any) {
+      console.error('Error fetching all attendances for stats:', err);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (isEmployee && user?.id) {
       setFilterEmployeeId(user.id);
     }
     fetchEmployees();
   }, [isEmployee, user]);
+
+  // Set default date only on client side (separate effect to avoid hydration issues)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !formData.date) {
+      setFormData(prev => ({
+        ...prev,
+        date: new Date().toISOString().split('T')[0],
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchAttendances = async () => {
     setLoading(true);
@@ -265,12 +306,21 @@ export default function AttendancePage() {
   };
 
   const formatTime = (dateString: string | null) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    if (!dateString || typeof window === 'undefined') return 'N/A';
+    try {
+      return new Date(dateString).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return 'N/A';
+    }
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('vi-VN');
+    if (typeof window === 'undefined') return dateString;
+    try {
+      return new Date(dateString).toLocaleDateString('vi-VN');
+    } catch {
+      return dateString;
+    }
   };
 
   const calculateWorkHours = (checkIn: string | null, checkOut: string | null) => {
@@ -281,9 +331,136 @@ export default function AttendancePage() {
     return `${diff.toFixed(2)} giờ`;
   };
 
+  // Calculate attendance statistics
+  const calculateAttendanceStats = () => {
+    const dailyStats: Record<string, { total: number; late: number; hours: number }> = {};
+    let totalHours = 0;
+    let totalLate = 0;
+    let totalRecords = 0;
+
+    allAttendances.forEach(att => {
+      const date = att.date;
+      if (!dailyStats[date]) {
+        dailyStats[date] = { total: 0, late: 0, hours: 0 };
+      }
+      dailyStats[date].total++;
+      totalRecords++;
+      
+      if (att.late_minutes && att.late_minutes > 0) {
+        dailyStats[date].late++;
+        totalLate++;
+      }
+      
+      if (att.work_hours) {
+        const hours = Number(att.work_hours);
+        dailyStats[date].hours += hours;
+        totalHours += hours;
+      }
+    });
+
+    const dailyData = Object.entries(dailyStats)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-7) // Last 7 days
+      .map(([date, stats]) => ({
+        date: typeof window !== 'undefined' ? new Date(date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : date,
+        'Số ca': stats.total,
+        'Đi muộn': stats.late,
+        'Giờ làm': Number(stats.hours.toFixed(2)),
+      }));
+
+    return {
+      dailyData,
+      totalHours: Number(totalHours.toFixed(2)),
+      totalLate,
+      totalRecords,
+      averageHours: totalRecords > 0 ? Number((totalHours / totalRecords).toFixed(2)) : 0,
+      lateRate: totalRecords > 0 ? Number(((totalLate / totalRecords) * 100).toFixed(1)) : 0,
+    };
+  };
+
+  const attendanceStats = calculateAttendanceStats();
+
   return (
     <div className="space-y-6">
       {contextHolder}
+      {/* Statistics Section */}
+      {!statsLoading && allAttendances.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <Clock className="w-5 h-5 text-blue-600" />
+              <h3 className="text-sm font-medium text-gray-600">Tổng giờ làm</h3>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{attendanceStats.totalHours}h</p>
+            <p className="text-xs text-gray-500 mt-1">Trung bình: {attendanceStats.averageHours}h/ca</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              <h3 className="text-sm font-medium text-gray-600">Tổng số ca</h3>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{attendanceStats.totalRecords}</p>
+            <p className="text-xs text-gray-500 mt-1">Đã chấm công</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <X className="w-5 h-5 text-red-600" />
+              <h3 className="text-sm font-medium text-gray-600">Đi muộn</h3>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{attendanceStats.totalLate}</p>
+            <p className="text-xs text-gray-500 mt-1">Tỷ lệ: {attendanceStats.lateRate}%</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="w-5 h-5 text-purple-600" />
+              <h3 className="text-sm font-medium text-gray-600">Hiệu suất</h3>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{100 - attendanceStats.lateRate}%</p>
+            <p className="text-xs text-gray-500 mt-1">Tỷ lệ đúng giờ</p>
+          </div>
+        </div>
+      )}
+
+      {/* Charts Section */}
+      {!statsLoading && allAttendances.length > 0 && attendanceStats.dailyData.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <BarChart3 className="w-5 h-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Thống kê 7 ngày gần nhất</h3>
+            </div>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={attendanceStats.dailyData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="Số ca" fill="#3b82f6" />
+                <Bar dataKey="Đi muộn" fill="#ef4444" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <TrendingUp className="w-5 h-5 text-green-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Giờ làm theo ngày</h3>
+            </div>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={attendanceStats.dailyData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="Giờ làm" stroke="#10b981" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white rounded-xl shadow-sm p-6">
         <div className="flex items-center justify-between mb-6">
@@ -457,7 +634,9 @@ export default function AttendancePage() {
                       </td>
                       <td className="px-6 py-4">
                         <p className="text-sm text-gray-900">
-                          {att.work_hours ? `${att.work_hours.toFixed(2)}h` : calculateWorkHours(att.check_in, att.check_out)}
+                          {att.work_hours 
+                            ? `${Number(att.work_hours).toFixed(2)}h` 
+                            : calculateWorkHours(att.check_in, att.check_out)}
                         </p>
                       </td>
                       <td className="px-6 py-4">
@@ -605,7 +784,7 @@ export default function AttendancePage() {
                 <DetailField label="Check-out" value={formatTime(selectedAttendance.check_out)} />
                 <DetailField
                   label="Giờ làm"
-                  value={selectedAttendance.work_hours ? `${selectedAttendance.work_hours.toFixed(2)}h` : 'N/A'}
+                  value={selectedAttendance.work_hours ? `${Number(selectedAttendance.work_hours).toFixed(2)}h` : 'N/A'}
                 />
                 <DetailField
                   label="Muộn"

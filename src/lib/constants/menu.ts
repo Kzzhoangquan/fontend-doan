@@ -40,7 +40,7 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Quản lý nhân sự',
     icon: Users,
     href: '/dashboard/hr',
-    roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN],
+    roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN, UserRole.EMPLOYEE],
     children: [
       {
         label: 'Nhân viên',
@@ -82,7 +82,7 @@ export const MENU_ITEMS: MenuItem[] = [
         label: 'Yêu cầu',
         icon: CheckSquare,
         href: ROUTES.DASHBOARD.HR.REQUESTS,
-        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN],
+        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN, UserRole.EMPLOYEE],
       },
     ],
   },
@@ -90,6 +90,12 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Chấm công',
     icon: Calendar,
     href: ROUTES.DASHBOARD.HR.ATTENDANCE,
+    roles: [UserRole.EMPLOYEE],
+  },
+  {
+    label: 'Yêu cầu nghỉ phép',
+    icon: CheckSquare,
+    href: ROUTES.DASHBOARD.HR.REQUESTS,
     roles: [UserRole.EMPLOYEE],
   },
   {
