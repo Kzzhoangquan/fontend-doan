@@ -67,6 +67,7 @@
     "react-icons": "^5.5.0",
     "react-redux": "^9.2.0",
     "styled-components": "^6.1.0",
+    "recharts": "^3.4.1",
     "tailwind-merge": "^3.3.1",
     "tiny-invariant": "^1.2.0",
     "zod": "^4.1.12",

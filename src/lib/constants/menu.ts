@@ -11,9 +11,7 @@ import {
   Settings,
   Home,
   CheckSquare,
-  ArrowRightLeft,
-  List,
-  FileText,
+  Briefcase,
 } from 'lucide-react';
 
 export interface MenuItem {
@@ -42,7 +40,7 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Quản lý',
     icon: Users,
     href: '/dashboard/hr',
-    roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN],
+    roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN, UserRole.EMPLOYEE],
     children: [
       {
         label: 'Nhân viên',
@@ -57,6 +55,12 @@ export const MENU_ITEMS: MenuItem[] = [
         roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN],
       },
       // ✅ TÀI SẢN - CẤP 2 với children cấp 3
+      {
+        label: 'Vị trí',
+        icon: Briefcase,
+        href: ROUTES.DASHBOARD.HR.POSITIONS,
+        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN],
+      },
       {
         label: 'Tài sản',
         icon: Package,
@@ -81,17 +85,29 @@ export const MENU_ITEMS: MenuItem[] = [
         label: 'Công ca',
         icon: Calendar,
         href: ROUTES.DASHBOARD.HR.ATTENDANCE,
-        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN],
+        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN, UserRole.EMPLOYEE],
       },
       {
         label: 'Yêu cầu',
         icon: CheckSquare,
         href: ROUTES.DASHBOARD.HR.REQUESTS,
-        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN],
+        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN, UserRole.EMPLOYEE],
       },
     ],
   },
   // ✅ QUẢN LÝ DỰ ÁN - Không có children, children sẽ được inject động từ API
+  {
+    label: 'Chấm công',
+    icon: Calendar,
+    href: ROUTES.DASHBOARD.HR.ATTENDANCE,
+    roles: [UserRole.EMPLOYEE],
+  },
+  {
+    label: 'Yêu cầu nghỉ phép',
+    icon: CheckSquare,
+    href: ROUTES.DASHBOARD.HR.REQUESTS,
+    roles: [UserRole.EMPLOYEE],
+  },
   {
     label: 'Quản lý dự án',
     icon: FolderKanban,
