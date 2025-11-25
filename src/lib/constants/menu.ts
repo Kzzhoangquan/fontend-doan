@@ -95,6 +95,7 @@ export const MENU_ITEMS: MenuItem[] = [
       },
     ],
   },
+  // ✅ QUẢN LÝ DỰ ÁN - Không có children, children sẽ được inject động từ API
   {
     label: 'Chấm công',
     icon: Calendar,
@@ -112,26 +113,7 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: FolderKanban,
     href: '/dashboard/projects',
     roles: [UserRole.EMPLOYEE, UserRole.DEPARTMENT_HEAD, UserRole.SUPER_ADMIN],
-    children: [
-      {
-        label: 'Dự án',
-        icon: FolderKanban,
-        href: ROUTES.DASHBOARD.PROJECTS.LIST,
-        roles: [UserRole.EMPLOYEE, UserRole.DEPARTMENT_HEAD, UserRole.SUPER_ADMIN],
-      },
-      {
-        label: 'Issues',
-        icon: CheckSquare,
-        href: ROUTES.DASHBOARD.PROJECTS.ISSUES,
-        roles: [UserRole.EMPLOYEE, UserRole.DEPARTMENT_HEAD, UserRole.SUPER_ADMIN],
-      },
-      {
-        label: 'Sprints',
-        icon: Calendar,
-        href: ROUTES.DASHBOARD.PROJECTS.SPRINTS,
-        roles: [UserRole.EMPLOYEE, UserRole.DEPARTMENT_HEAD, UserRole.SUPER_ADMIN],
-      },
-    ],
+    // Không cần children ở đây, sẽ được inject động trong Sidebar component
   },
   {
     label: 'Kế toán',

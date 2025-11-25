@@ -3,4 +3,4 @@ const nextConfig = {
   // XÓA rewrites - Dùng API Routes thay thế
 };
 
-module.exports = nextConfig;
+export default nextConfig;
