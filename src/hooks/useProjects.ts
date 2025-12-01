@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { projectService, Project } from '@/lib/api/services/project.service';
+import { projectService, Project } from '@/lib/api/services/project-module/project.service';
 
 interface SidebarProject {
   id: number;

@@ -1,5 +1,5 @@
 // src/lib/api/services/board.service.ts
-import api from '../axios';
+import api from '../../axios';
 
 export interface BoardIssue {
   id: number;
@@ -49,9 +49,10 @@ export const boardService = {
    * Lấy board data theo workflow
    * GET /issues/workflow/:workflowId/statuses
    */
-  getBoardByWorkflow: async (workflowId: number): Promise<any> => {
+  getBoardByWorkflow: async (workflowId: number, projectId: number): Promise<any> => {
     const response = await api.get<any>(
-      `/issues/workflow/${workflowId}/statuses`
+      `/issues/workflow/${workflowId}/statuses`,
+      { params: { projectId } }
     );
     return response.data;
   },
@@ -62,11 +63,13 @@ export const boardService = {
    */
   reorderColumns: async (
     workflowId: number,
-    data: ReorderColumnsDto
+    data: ReorderColumnsDto,
+    projectId: number
   ): Promise<any> => {
     const response = await api.patch(
       `/issues/workflow/${workflowId}/columns/reorder`,
-      data
+      data,
+      { params: { projectId } }
     );
     return response.data;
   },
@@ -77,7 +80,8 @@ export const boardService = {
    */
   reorderCards: async (
     statusId: number,
-    data: ReorderCardsDto
+    data: ReorderCardsDto,
+    projectId: number
   ): Promise<any> => {
     const response = await api.patch(
       `/issues/status/${statusId}/cards/reorder`,
@@ -90,8 +94,8 @@ export const boardService = {
    * Move card sang column khác
    * PATCH /issues/card/:issueId/move
    */
-  moveCard: async (issueId: number, data: MoveCardDto): Promise<any> => {
-    const response = await api.patch(`/issues/card/${issueId}/move`, data);
+  moveCard: async (issueId: number, data: MoveCardDto, projectId: number): Promise<any> => {
+    const response = await api.patch(`/issues/card/${issueId}/move`, data, { params: { projectId } });
     return response.data;
   },
 };

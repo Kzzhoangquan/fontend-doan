@@ -19,7 +19,7 @@ import { BoardContext, type BoardContextValue } from '@/components/project-modul
 import { Column } from '@/components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/column';
 import { createRegistry } from '@/components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/registry';
 import { CreateIssueModal } from '@/components/project-module/issue/CreateIssueModal';
-import { boardService } from '@/lib/api/services/board.service';
+import { boardService } from '@/lib/api/services/project-module/board.service';
 import { BoardFilter, BoardFilterValues, useFilteredBoardData } from './BoardFilter';
 
 type Outcome =
@@ -87,7 +87,7 @@ export const BoardComponent: React.FC<BoardProps> = ({
 		try {
 			setLoading(true);
 			
-			const apiData = await boardService.getBoardByWorkflow(boardId ?? 1);
+			const apiData = await boardService.getBoardByWorkflow(boardId ?? 1, projectId);
 			
 			console.log('API data:', apiData);
 			
@@ -397,7 +397,7 @@ export const BoardComponent: React.FC<BoardProps> = ({
 					case 'column-reorder': {
 						await boardService.reorderColumns(parseInt(workflowId), {
 							orderedColumnIds: orderedColumnIds.map(id => parseInt(id))
-						});
+						}, projectId);
 						console.log('[API SUCCESS] Columns reordered');
 						break;
 					}
@@ -410,7 +410,7 @@ export const BoardComponent: React.FC<BoardProps> = ({
 
 						await boardService.reorderCards(parseInt(columnId), {
 							orderedIssueIds
-						});
+						}, projectId);
 						console.log('[API SUCCESS] Cards reordered');
 						break;
 					}
@@ -425,7 +425,7 @@ export const BoardComponent: React.FC<BoardProps> = ({
 						await boardService.moveCard(movedCardId, {
 							targetStatusId: parseInt(finishColumnId),
 							targetIndex: itemIndexInFinishColumn,
-						});
+						}, projectId);
 						console.log('[API SUCCESS] Card moved');
 						break;
 					}

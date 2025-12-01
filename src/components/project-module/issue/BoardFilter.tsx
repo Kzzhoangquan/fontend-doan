@@ -19,7 +19,7 @@ import {
     AppstoreOutlined,
     FlagOutlined,
 } from '@ant-design/icons';
-import { issueService, Employee, IssueType } from '@/lib/api/services/issue.service';
+import { issueService, Employee, IssueType } from '@/lib/api/services/project-module/issue.service';
 
 const { Option } = Select;
 
@@ -60,7 +60,7 @@ export const BoardFilter: React.FC<BoardFilterProps> = ({
                 setLoading(true);
                 const [employeesData, issueTypesData, epicsData] = await Promise.all([
                     issueService.getProjectEmployees(projectId),
-                    issueService.getIssueTypes(),
+                    issueService.getIssueTypes(projectId),
                     issueService.getProjectEpics ? issueService.getProjectEpics(projectId) : Promise.resolve([]),
                 ]);
                 setEmployees(employeesData);

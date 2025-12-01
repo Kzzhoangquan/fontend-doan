@@ -8,8 +8,11 @@ import {
     UserOutlined,
     CalendarOutlined,
     InfoCircleOutlined,
+    TeamOutlined,
+    SafetyOutlined,
+    BellOutlined,
 } from '@ant-design/icons';
-import { projectService, Project } from '@/lib/api/services/project.service';
+import { projectService, Project } from '@/lib/api/services/project-module/project.service';
 
 const { Text, Title } = Typography;
 
@@ -47,6 +50,8 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ projectId }) => {
         if (pathname.includes('/sprints')) return 'sprint';
         if (pathname.includes('/epics')) return 'epics';
         if (pathname.includes('/boards')) return 'boards';
+        if (pathname.includes('/team')) return 'team';
+        if (pathname.includes('/notifications')) return 'notifications';
         // Default to sprint nếu chỉ có /dashboard/projects/:id
         return 'sprint';
     };
@@ -62,6 +67,15 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ projectId }) => {
                 break;
             case 'boards':
                 router.push(`/dashboard/projects/${projectId}/boards/1`);
+                break;
+            case 'team':
+                router.push(`/dashboard/projects/${projectId}/team`);
+                break;
+            case 'roles':
+                router.push(`/dashboard/projects/${projectId}/roles`);
+                break;
+            case 'notifications':
+                router.push(`/dashboard/projects/${projectId}/notifications`);
                 break;
         }
     };
@@ -103,6 +117,33 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ projectId }) => {
                 <Space>
                     <AppstoreOutlined />
                     <span>Board</span>
+                </Space>
+            ),
+        },
+        {
+            key: 'team',
+            label: (
+                <Space>
+                    <TeamOutlined />
+                    <span>Team</span>
+                </Space>
+            ),
+        },
+        {
+            key: 'roles',
+            label: (
+                <Space>
+                    <SafetyOutlined />
+                    <span>Roles</span>
+                </Space>
+            ),
+        },
+        {
+            key: 'notifications',
+            label: (
+                <Space>
+                    <BellOutlined />
+                    <span>Notifications</span>
                 </Space>
             ),
         },

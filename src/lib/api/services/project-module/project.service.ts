@@ -1,5 +1,5 @@
 // src/lib/api/services/project.service.ts
-import api from '../axios';
+import api from '../../axios';
 
 export interface Project {
   id: number;

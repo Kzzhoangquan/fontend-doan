@@ -15,7 +15,7 @@ import {
     UserAddOutlined,
     CloseOutlined,
 } from '@ant-design/icons';
-import { issueService, Employee } from '@/lib/api/services/issue.service';
+import { issueService, Employee } from '@/lib/api/services/project-module/issue.service';
 
 const { Option } = Select;
 const { Text } = Typography;

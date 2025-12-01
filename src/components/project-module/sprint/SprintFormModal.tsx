@@ -13,7 +13,7 @@ import {
 import { RocketOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { Sprint } from './sprint.types';
-import { sprintService, CreateSprintDto, UpdateSprintDto } from '@/lib/api/services/sprint.service';
+import { sprintService, CreateSprintDto, UpdateSprintDto } from '@/lib/api/services/project-module/sprint.service';
 
 const { TextArea } = Input;
 const { Option } = Select;
