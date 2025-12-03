@@ -8,7 +8,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
 import { MENU_ITEMS, MenuItem } from '@/lib/constants/menu';
 import { ROUTES } from '@/lib/constants/routes';
-import { ChevronLeft, ChevronRight, ChevronDown, FolderKanban, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, FolderKanban, Loader2, Plus } from 'lucide-react';
+import { CreateProjectModal } from '@/components/project-module/CreateProjectModal';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -20,8 +21,9 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
   const { hasAnyRole, user } = useAuth();
-  const { projects, loading: projectsLoading } = useProjects();
+  const { projects, loading: projectsLoading, refetch: refetchProjects } = useProjects();
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   
   // State để delay hiển thị text sau khi sidebar mở
   const [showText, setShowText] = useState(!isCollapsed);
@@ -78,6 +80,10 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
     if (isActive(item.href)) return true;
     if (item.children) return item.children.some(child => isParentOfActive(child));
     return false;
+  };
+
+  const handleCreateProjectSuccess = () => {
+    refetchProjects(); // Refresh danh sách projects
   };
 
   const filterMenuItems = (items: MenuItem[]): MenuItem[] => {
@@ -210,6 +216,15 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
             {/* Nếu là menu "Quản lý dự án" */}
             {item.href === '/dashboard/projects' ? (
               <>
+                {/* Button Tạo dự án mới */}
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-xs font-medium"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Tạo dự án mới</span>
+                </button>
+
                 {projectsLoading && (
                   <div className="flex items-center gap-2 px-2 py-2 text-slate-400 text-xs">
                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -218,7 +233,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
                 )}
                 {!projectsLoading && projects.length === 0 && (
                   <div className="px-2 py-2 text-slate-400 text-xs">
-                    Không có dự án
+                    Chưa có dự án. Nhấn nút trên để tạo!
                   </div>
                 )}
                 {!projectsLoading && projects.length > 0 && 
@@ -282,6 +297,13 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
           </div>
         </div>
       </aside>
+
+      {/* Create Project Modal */}
+      <CreateProjectModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={handleCreateProjectSuccess}
+      />
     </>
   );
 }

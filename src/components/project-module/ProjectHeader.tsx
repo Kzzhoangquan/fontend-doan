@@ -51,8 +51,8 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ projectId }) => {
         if (pathname.includes('/epics')) return 'epics';
         if (pathname.includes('/boards')) return 'boards';
         if (pathname.includes('/team')) return 'team';
+        if (pathname.includes('/roles')) return 'roles';
         if (pathname.includes('/notifications')) return 'notifications';
-        // Default to sprint nếu chỉ có /dashboard/projects/:id
         return 'sprint';
     };
 

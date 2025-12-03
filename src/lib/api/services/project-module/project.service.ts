@@ -5,10 +5,13 @@ export interface Project {
   id: number;
   project_key: string;
   project_name: string;
+  project_description?: string;
   lead_employee_id: number;
   permission_scheme_id: number;
   notification_scheme_id: number;
   workflow_scheme_id: number;
+  created_at?: string;
+  updated_at?: string;
   lead_employee?: {
     id: number;
     full_name: string;
@@ -19,61 +22,84 @@ export interface Project {
 export interface CreateProjectDto {
   project_key: string;
   project_name: string;
+  project_description?: string | null;
   lead_employee_id: number;
   permission_scheme_id: number;
   notification_scheme_id: number;
   workflow_scheme_id: number;
 }
 
-export interface UpdateProjectDto extends Partial<CreateProjectDto> {}
+export interface SchemeOption {
+  id: number;
+  scheme_name: string;
+  scheme_description?: string;
+  is_default?: boolean;
+}
 
-/**
- * Project API Service
- */
+export interface AllSchemes {
+  permissionSchemes: SchemeOption[];
+  notificationSchemes: SchemeOption[];
+  workflowSchemes: SchemeOption[];
+}
+
+export interface DefaultSchemes {
+  permissionScheme: SchemeOption | null;
+  notificationScheme: SchemeOption | null;
+  workflowScheme: SchemeOption | null;
+}
+
 export const projectService = {
-  /**
-   * Lấy danh sách tất cả dự án
-   */
+  // Existing methods
   getAll: async (): Promise<Project[]> => {
     const response = await api.get<Project[]>('/projects');
     return response.data;
   },
 
-  /**
-   * Lấy thông tin chi tiết một dự án
-   */
   getById: async (id: number): Promise<Project> => {
     const response = await api.get<Project>(`/projects/${id}`);
     return response.data;
   },
 
-  /**
-   * Tạo dự án mới
-   */
-  create: async (data: CreateProjectDto): Promise<Project> => {
-    const response = await api.post<Project>('/projects', data);
+  create: async (data: CreateProjectDto): Promise<any> => {
+    const response = await api.post('/projects', data);
     return response.data;
   },
 
-  /**
-   * Cập nhật dự án
-   */
-  update: async (id: number, data: UpdateProjectDto): Promise<Project> => {
+  update: async (id: number, data: Partial<CreateProjectDto>): Promise<Project> => {
     const response = await api.patch<Project>(`/projects/${id}`, data);
     return response.data;
   },
 
-  /**
-   * Xóa dự án
-   */
   delete: async (id: number): Promise<void> => {
     await api.delete(`/projects/${id}`);
   },
 
-  /**
-   * Lấy danh sách dự án cho sidebar (lightweight)
-   * Chỉ trả về id, project_key, project_name
-   */
+  // New methods for schemes
+  getPermissionSchemes: async (): Promise<SchemeOption[]> => {
+    const response = await api.get<SchemeOption[]>('/projects/schemes/permission');
+    return response.data;
+  },
+
+  getNotificationSchemes: async (): Promise<SchemeOption[]> => {
+    const response = await api.get<SchemeOption[]>('/projects/schemes/notification');
+    return response.data;
+  },
+
+  getWorkflowSchemes: async (): Promise<SchemeOption[]> => {
+    const response = await api.get<SchemeOption[]>('/projects/schemes/workflow');
+    return response.data;
+  },
+
+  getAllSchemes: async (): Promise<AllSchemes> => {
+    const response = await api.get<AllSchemes>('/projects/schemes/all');
+    return response.data;
+  },
+
+  getDefaultSchemes: async (): Promise<DefaultSchemes> => {
+    const response = await api.get<DefaultSchemes>('/projects/schemes/default');
+    return response.data;
+  },
+
   getForSidebar: async (): Promise<Pick<Project, 'id' | 'project_key' | 'project_name'>[]> => {
     const response = await api.get<Project[]>('/projects');
     return response.data.map(p => ({
