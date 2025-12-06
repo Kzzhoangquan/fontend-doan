@@ -17,8 +17,8 @@ import {
     TagOutlined,
     SaveOutlined,
 } from '@ant-design/icons';
-import { issueService, Issue, IssueType, WorkflowStatus, Employee } from '@/lib/api/services/issue.service';
-import { epicService } from '@/lib/api/services/epic.service';
+import { issueService, Issue, IssueType, WorkflowStatus, Employee } from '@/lib/api/services/project-module/issue.service';
+import { epicService } from '@/lib/api/services/project-module/epic.service';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -114,7 +114,7 @@ export const IssueEditForm: React.FC<IssueEditFormProps> = ({
     // Fetch reference data
     const fetchReferenceData = async () => {
         try {
-            const types = await issueService.getIssueTypes();
+            const types = await issueService.getIssueTypes(issue?.project_id || 1);
             const employees = await issueService.getProjectEmployees(issue?.project_id || 1);
 
             setIssueTypes(types);
@@ -124,7 +124,7 @@ export const IssueEditForm: React.FC<IssueEditFormProps> = ({
                 const epics = await epicService.getAll({ projectId: issue.project_id });
                 setEpics(epics);
 
-                const statuses = await issueService.getWorkflowStatuses(1);
+                const statuses = await issueService.getWorkflowStatuses(1, issue.project_id); // Giả sử workflowId = 1
 
                 setStatuses(statuses);
             }

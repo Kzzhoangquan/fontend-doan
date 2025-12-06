@@ -17,7 +17,7 @@ import {
     EditOutlined,
     DeleteOutlined,
 } from '@ant-design/icons';
-import { issueService, IssueComment } from '@/lib/api/services/issue.service';
+import { issueService, IssueComment } from '@/lib/api/services/project-module/issue.service';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/vi';

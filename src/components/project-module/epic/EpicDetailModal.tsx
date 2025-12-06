@@ -19,7 +19,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import { epicService, Epic } from '@/lib/api/services/epic.service';
+import { epicService, Epic } from '@/lib/api/services/project-module/epic.service';
 
 const { Title, Text, Paragraph } = Typography;
 

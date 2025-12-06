@@ -1,5 +1,5 @@
 // src/lib/api/services/epic.service.ts
-import api from '../axios';
+import api from '../../axios';
 
 export interface Epic {
   id: number;

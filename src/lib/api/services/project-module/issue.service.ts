@@ -1,5 +1,5 @@
 // src/lib/api/services/issue.service.ts
-import api from '../axios';
+import api from '../../axios';
 
 export interface Issue {
   id: number;
@@ -154,14 +154,14 @@ export const issueService = {
 
   // ============ Reference Data ============
 
-  getIssueTypes: async (): Promise<IssueType[]> => {
-    const response = await api.get<IssueType[]>('/issues/types');
+  getIssueTypes: async (projectId?: number): Promise<IssueType[]> => {
+    const response = await api.get<IssueType[]>('/issues/types', { params: { projectId } });
     return response.data;
   },
 
-  getWorkflowStatuses: async (workflowId: number): Promise<WorkflowStatus[]> => {
+  getWorkflowStatuses: async (workflowId: number, projectId: number): Promise<WorkflowStatus[]> => {
     const response = await api.get<WorkflowStatus[]>('/issues/statuses', {
-      params: { workflowId },
+      params: { workflowId, projectId },
     });
     return response.data;
   },

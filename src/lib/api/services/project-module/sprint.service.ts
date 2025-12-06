@@ -1,5 +1,5 @@
 // src/lib/api/services/sprint.service.ts
-import api from '../axios';
+import api from '../../axios';
 
 export interface Sprint {
   id: number;

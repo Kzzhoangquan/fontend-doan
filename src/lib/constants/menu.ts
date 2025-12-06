@@ -12,6 +12,9 @@ import {
   Home,
   CheckSquare,
   Briefcase,
+  List,
+  ArrowRightLeft,
+  FileText,
 } from 'lucide-react';
 
 export interface MenuItem {

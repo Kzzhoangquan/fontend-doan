@@ -28,7 +28,7 @@ import { IssueWatchers } from './IssueWatchers';
 import { IssueComments } from './IssueComments';
 import { IssueLinks } from './IssueLinks';
 import { IssueHistory } from './IssueHistory';
-import { issueService } from '@/lib/api/services/issue.service';
+import { issueService } from '@/lib/api/services/project-module/issue.service';
 
 const { Text } = Typography;
 
