@@ -26,7 +26,7 @@ import { SprintIssueCard } from './SprintIssueCard';
 import { IssueEditModal } from '../issue/EditForm/IssueEditModal';
 import { CreateIssueModal } from '../issue/CreateIssueModal';
 import { Issue, Sprint } from './sprint.types';
-import { sprintService } from '@/lib/api/services/sprint.service';
+import { sprintService } from '@/lib/api/services/project-module/sprint.service';
 import { SprintBacklogFilter, SprintFilterValues, useFilteredSprintData } from './SprintBacklogFilter';
 
 const { Title, Text } = Typography;

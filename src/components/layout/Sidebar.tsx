@@ -8,7 +8,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
 import { MENU_ITEMS, MenuItem } from '@/lib/constants/menu';
 import { ROUTES } from '@/lib/constants/routes';
-import { ChevronLeft, ChevronRight, ChevronDown, FolderKanban, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, FolderKanban, Loader2, Plus, Grid3x3 } from 'lucide-react';
+import { CreateProjectModal } from '@/components/project-module/CreateProjectModal';
+import { AllProjectsModal } from '@/components/project-module/AllProjectsModal';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -20,11 +22,24 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
   const { hasAnyRole, user } = useAuth();
-  const { projects, loading: projectsLoading } = useProjects();
+  const { projects, loading: projectsLoading, refetch: refetchProjects } = useProjects();
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showAllProjectsModal, setShowAllProjectsModal] = useState(false);
   
   // State để delay hiển thị text sau khi sidebar mở
   const [showText, setShowText] = useState(!isCollapsed);
+
+  // Lấy 5 dự án mới nhất (sorted by created_at desc)
+  const recentProjects = useMemo(() => {
+    return [...projects]
+      .sort((a, b) => {
+        const dateA = new Date(a.created_at || 0).getTime();
+        const dateB = new Date(b.created_at || 0).getTime();
+        return dateB - dateA; // Newest first
+      })
+      .slice(0, 5);
+  }, [projects]);
 
   // Delay text: ẩn ngay khi collapse, hiện sau 150ms khi expand
   useEffect(() => {
@@ -80,22 +95,26 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
     return false;
   };
 
+  const handleCreateProjectSuccess = () => {
+    refetchProjects(); // Refresh danh sách projects
+  };
+
   const filterMenuItems = (items: MenuItem[]): MenuItem[] => {
     return items
       .filter(item => hasAnyRole(item.roles))
       .map(item => {
-        // Nếu là menu "Quản lý dự án", CHỈ hiển thị danh sách projects
+        // Nếu là menu "Quản lý dự án", CHỈ hiển thị 5 dự án mới nhất
         if (item.href === '/dashboard/projects') {
-          const projectChildren: MenuItem[] = projects.map(project => ({
+          const projectChildren: MenuItem[] = recentProjects.map(project => ({
             label: project.project_key,
             icon: FolderKanban,
-            href: `/dashboard/projects/${project.id}/sprints`, // Link đến sprint page
+            href: `/dashboard/projects/${project.id}/summary`,
             roles: item.roles, // Kế thừa roles từ parent
           }));
 
           return {
             ...item,
-            children: projectChildren, // CHỈ có projects, không có menu con khác
+            children: projectChildren, // CHỈ có 5 projects mới nhất
           };
         }
 
@@ -107,7 +126,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
       .filter(item => !item.children || item.children.length > 0);
   };
 
-  const filteredMenuItems = useMemo(() => filterMenuItems(MENU_ITEMS), [user?.roles, projects, projectsLoading]);
+  const filteredMenuItems = useMemo(() => filterMenuItems(MENU_ITEMS), [user?.roles, recentProjects, projectsLoading]);
 
   const renderMenuItem = (item: MenuItem, depth: number = 0, parentHref?: string) => {
     const hasChildren = item.children && item.children.length > 0;
@@ -210,6 +229,26 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
             {/* Nếu là menu "Quản lý dự án" */}
             {item.href === '/dashboard/projects' ? (
               <>
+                {/* Button Tạo dự án mới */}
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-xs font-medium"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Tạo dự án mới</span>
+                </button>
+
+                {/* Button Xem tất cả dự án */}
+                {projects.length > 5 && (
+                  <button
+                    onClick={() => setShowAllProjectsModal(true)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors text-xs font-medium"
+                  >
+                    <Grid3x3 className="w-4 h-4" />
+                    <span>Xem tất cả ({projects.length})</span>
+                  </button>
+                )}
+
                 {projectsLoading && (
                   <div className="flex items-center gap-2 px-2 py-2 text-slate-400 text-xs">
                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -218,12 +257,17 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
                 )}
                 {!projectsLoading && projects.length === 0 && (
                   <div className="px-2 py-2 text-slate-400 text-xs">
-                    Không có dự án
+                    Chưa có dự án. Nhấn nút trên để tạo!
                   </div>
                 )}
-                {!projectsLoading && projects.length > 0 && 
-                  item.children!.map(child => renderMenuItem(child, depth + 1, item.href))
-                }
+                {!projectsLoading && recentProjects.length > 0 && (
+                  <>
+                    <div className="px-2 py-1 text-[10px] text-slate-400 uppercase font-semibold">
+                      Recent Projects
+                    </div>
+                    {item.children!.map(child => renderMenuItem(child, depth + 1, item.href))}
+                  </>
+                )}
               </>
             ) : (
               // Render children bình thường cho menu khác
@@ -282,6 +326,21 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
           </div>
         </div>
       </aside>
+
+      {/* Create Project Modal */}
+      <CreateProjectModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={handleCreateProjectSuccess}
+      />
+
+      {/* All Projects Modal */}
+      <AllProjectsModal
+        open={showAllProjectsModal}
+        onClose={() => setShowAllProjectsModal(false)}
+        projects={projects}
+        loading={projectsLoading}
+      />
     </>
   );
 }

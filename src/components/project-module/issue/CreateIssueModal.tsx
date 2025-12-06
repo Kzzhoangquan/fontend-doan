@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Select, message } from 'antd';
-import { issueService, IssueType, WorkflowStatus } from '@/lib/api/services/issue.service';
+import { issueService, IssueType, WorkflowStatus } from '@/lib/api/services/project-module/issue.service';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -29,7 +29,7 @@ export const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
 	const fetchIssueTypes = async () => {
 		try {
 			setLoadingTypes(true);
-			const data = await issueService.getIssueTypes();
+			const data = await issueService.getIssueTypes(projectId);
 			setIssueTypes(data);
 		} catch (error) {
 			console.error('Error fetching issue types:', error);
@@ -43,7 +43,7 @@ export const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
 	const fetchStatuses = async (workflowId: number) => {
 		try {
 			setLoadingStatuses(true);
-			const data = await issueService.getWorkflowStatuses(workflowId);
+			const data = await issueService.getWorkflowStatuses(workflowId, projectId);
 			setStatuses(data);
 		} catch (error) {
 			console.error('Error fetching statuses:', error);

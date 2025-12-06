@@ -20,6 +20,7 @@ export const ROUTES = {
       ASSET_ASSIGNMENT: '/dashboard/hr/asset-assignment',
       ATTENDANCE: '/dashboard/hr/attendance',
       REQUESTS: '/dashboard/hr/requests',
+      REQUEST_ASSET : '/dashboard/hr/request-asset'
     },
 
     // Project Management

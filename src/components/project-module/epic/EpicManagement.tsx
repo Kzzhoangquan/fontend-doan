@@ -24,8 +24,8 @@ import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { EpicFormModal } from './EpicFormModal';
 import { EpicDetailModal } from './EpicDetailModal';
-import { epicService, Epic } from '@/lib/api/services/epic.service';
-import { projectService, Project } from '@/lib/api/services/project.service';
+import { epicService, Epic } from '@/lib/api/services/project-module/epic.service';
+import { projectService, Project } from '@/lib/api/services/project-module/project.service';
 
 const { Title } = Typography;
 const { Option } = Select;

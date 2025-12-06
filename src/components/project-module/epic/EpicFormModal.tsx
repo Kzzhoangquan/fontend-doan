@@ -11,8 +11,8 @@ import {
 } from 'antd';
 import { FlagOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { epicService, Epic, CreateEpicDto, UpdateEpicDto } from '@/lib/api/services/epic.service';
-import { Project } from '@/lib/api/services/project.service';
+import { epicService, Epic, CreateEpicDto, UpdateEpicDto } from '@/lib/api/services/project-module/epic.service';
+import { Project } from '@/lib/api/services/project-module/project.service';
 
 const { TextArea } = Input;
 const { Option } = Select;

@@ -8,8 +8,12 @@ import {
     UserOutlined,
     CalendarOutlined,
     InfoCircleOutlined,
+    TeamOutlined,
+    SafetyOutlined,
+    BellOutlined,
+    BarChartOutlined,
 } from '@ant-design/icons';
-import { projectService, Project } from '@/lib/api/services/project.service';
+import { projectService, Project } from '@/lib/api/services/project-module/project.service';
 
 const { Text, Title } = Typography;
 
@@ -44,24 +48,39 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ projectId }) => {
 
     // Determine active tab based on pathname
     const getActiveTab = () => {
+        if (pathname.includes('/summary')) return 'summary';
         if (pathname.includes('/sprints')) return 'sprint';
-        if (pathname.includes('/epics')) return 'epics';
         if (pathname.includes('/boards')) return 'boards';
-        // Default to sprint nếu chỉ có /dashboard/projects/:id
+        if (pathname.includes('/epics')) return 'epics';
+        if (pathname.includes('/team')) return 'team';
+        if (pathname.includes('/roles')) return 'roles';
+        if (pathname.includes('/notifications')) return 'notifications';
         return 'sprint';
     };
 
     // Handle tab change
     const handleTabChange = (key: string) => {
         switch (key) {
+            case 'summary':
+                router.push(`/dashboard/projects/${projectId}/summary`);
+                break;
             case 'sprint':
                 router.push(`/dashboard/projects/${projectId}/sprints`);
+                break;
+            case 'boards':
+                router.push(`/dashboard/projects/${projectId}/boards`);
                 break;
             case 'epics':
                 router.push(`/dashboard/projects/${projectId}/epics`);
                 break;
-            case 'boards':
-                router.push(`/dashboard/projects/${projectId}/boards/1`);
+            case 'team':
+                router.push(`/dashboard/projects/${projectId}/team`);
+                break;
+            case 'roles':
+                router.push(`/dashboard/projects/${projectId}/roles`);
+                break;
+            case 'notifications':
+                router.push(`/dashboard/projects/${projectId}/notifications`);
                 break;
         }
     };
@@ -80,11 +99,29 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ projectId }) => {
 
     const tabItems = [
         {
+            key: 'summary',
+            label: (
+                <Space>
+                    <BarChartOutlined />
+                    <span>Summary</span>
+                </Space>
+            ),
+        },
+        {
             key: 'sprint',
             label: (
                 <Space>
                     <RocketOutlined />
                     <span>Sprint Backlog</span>
+                </Space>
+            ),
+        },
+        {
+            key: 'boards',
+            label: (
+                <Space>
+                    <AppstoreOutlined />
+                    <span>Board</span>
                 </Space>
             ),
         },
@@ -98,11 +135,29 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ projectId }) => {
             ),
         },
         {
-            key: 'boards',
+            key: 'team',
             label: (
                 <Space>
-                    <AppstoreOutlined />
-                    <span>Board</span>
+                    <TeamOutlined />
+                    <span>Team</span>
+                </Space>
+            ),
+        },
+        {
+            key: 'roles',
+            label: (
+                <Space>
+                    <SafetyOutlined />
+                    <span>Roles</span>
+                </Space>
+            ),
+        },
+        {
+            key: 'notifications',
+            label: (
+                <Space>
+                    <BellOutlined />
+                    <span>Notifications</span>
                 </Space>
             ),
         },
