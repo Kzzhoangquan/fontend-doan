@@ -11,6 +11,7 @@ import {
     TeamOutlined,
     SafetyOutlined,
     BellOutlined,
+    BarChartOutlined,
 } from '@ant-design/icons';
 import { projectService, Project } from '@/lib/api/services/project-module/project.service';
 
@@ -47,9 +48,10 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ projectId }) => {
 
     // Determine active tab based on pathname
     const getActiveTab = () => {
+        if (pathname.includes('/summary')) return 'summary';
         if (pathname.includes('/sprints')) return 'sprint';
-        if (pathname.includes('/epics')) return 'epics';
         if (pathname.includes('/boards')) return 'boards';
+        if (pathname.includes('/epics')) return 'epics';
         if (pathname.includes('/team')) return 'team';
         if (pathname.includes('/roles')) return 'roles';
         if (pathname.includes('/notifications')) return 'notifications';
@@ -59,14 +61,17 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ projectId }) => {
     // Handle tab change
     const handleTabChange = (key: string) => {
         switch (key) {
+            case 'summary':
+                router.push(`/dashboard/projects/${projectId}/summary`);
+                break;
             case 'sprint':
                 router.push(`/dashboard/projects/${projectId}/sprints`);
                 break;
+            case 'boards':
+                router.push(`/dashboard/projects/${projectId}/boards`);
+                break;
             case 'epics':
                 router.push(`/dashboard/projects/${projectId}/epics`);
-                break;
-            case 'boards':
-                router.push(`/dashboard/projects/${projectId}/boards/1`);
                 break;
             case 'team':
                 router.push(`/dashboard/projects/${projectId}/team`);
@@ -94,6 +99,15 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ projectId }) => {
 
     const tabItems = [
         {
+            key: 'summary',
+            label: (
+                <Space>
+                    <BarChartOutlined />
+                    <span>Summary</span>
+                </Space>
+            ),
+        },
+        {
             key: 'sprint',
             label: (
                 <Space>
@@ -103,20 +117,20 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ projectId }) => {
             ),
         },
         {
-            key: 'epics',
-            label: (
-                <Space>
-                    <FlagOutlined />
-                    <span>Epics</span>
-                </Space>
-            ),
-        },
-        {
             key: 'boards',
             label: (
                 <Space>
                     <AppstoreOutlined />
                     <span>Board</span>
+                </Space>
+            ),
+        },
+        {
+            key: 'epics',
+            label: (
+                <Space>
+                    <FlagOutlined />
+                    <span>Epics</span>
                 </Space>
             ),
         },

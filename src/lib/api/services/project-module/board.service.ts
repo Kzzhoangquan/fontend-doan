@@ -40,11 +40,27 @@ export interface MoveCardDto {
   targetIndex: number;
 }
 
+export interface Workflow {
+  id: number;
+  workflow_name: string;
+}
+
 /**
  * Board (Kanban) API Service
  * Quản lý board, columns, và card operations
  */
 export const boardService = {
+  /**
+   * Lấy danh sách workflows của project
+   * GET /issues/workflows?projectId=:projectId
+   */
+  getProjectWorkflows: async (projectId: number): Promise<Workflow[]> => {
+    const response = await api.get<Workflow[]>('/issues/workflows', {
+      params: { projectId },
+    });
+    return response.data;
+  },
+
   /**
    * Lấy board data theo workflow
    * GET /issues/workflow/:workflowId/statuses
