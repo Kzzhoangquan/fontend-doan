@@ -44,6 +44,7 @@ export interface GetAssignmentsParams {
   pageSize?: number;
   search?: string;
   employeeId?: number;
+  departmentId?: number;
   status?: AssignmentStatus;
   sortBy?: string;
   sortOrder?: 'ASC' | 'DESC';
