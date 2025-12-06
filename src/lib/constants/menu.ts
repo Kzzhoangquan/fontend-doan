@@ -17,6 +17,7 @@ import {
   FileText,
 } from 'lucide-react';
 
+
 export interface MenuItem {
   label: string;
   icon: any;
@@ -71,15 +72,21 @@ export const MENU_ITEMS: MenuItem[] = [
         roles: [UserRole.MANAGER],
         children: [
           {
-            label: 'Danh sách tài sản',
+            label: 'Danh sách',
             icon: List,
             href: ROUTES.DASHBOARD.HR.ASSETS,
             roles: [UserRole.MANAGER],
           },
           {
-            label: 'Phân công tài sản',
+            label: 'Phân công',
             icon: ArrowRightLeft,
             href: ROUTES.DASHBOARD.HR.ASSET_ASSIGNMENT,
+            roles: [UserRole.MANAGER],
+          },
+          {
+            label: 'Phê duyệt',
+            icon: ArrowRightLeft,
+            href: ROUTES.DASHBOARD.HR.REQUEST_ASSET,
             roles: [UserRole.MANAGER],
           },
         ],

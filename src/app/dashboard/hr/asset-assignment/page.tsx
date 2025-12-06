@@ -11,6 +11,7 @@ import {
 } from '@/lib/api/services/assignment.service';
 import { Asset } from '@/lib/api/services/asset.service';
 import { employeeService } from '@/lib/api/services/employee.service';
+import { departmentService, Department } from '@/lib/api/services/department.service'; // ← IMPORT MỚI
 import { useAuth } from '@/hooks/useAuth';
 import { UserRole } from '@/lib/constants/roles';
 
@@ -28,6 +29,7 @@ export default function AssetAssignmentPage() {
 
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]); // ← STATE MỚI
   const [availableAssets, setAvailableAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -35,7 +37,7 @@ export default function AssetAssignmentPage() {
   const [currentView, setCurrentView] = useState<'list' | 'history'>('list');
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [showReturnModal, setShowReturnModal] = useState(false); // ← MỚI: Modal xác nhận thu hồi
+  const [showReturnModal, setShowReturnModal] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -53,7 +55,7 @@ export default function AssetAssignmentPage() {
   });
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterEmployee, setFilterEmployee] = useState('');
+  const [filterDepartment, setFilterDepartment] = useState(''); // ← THAY ĐỔI TỪ filterEmployee
   const [filterStatus, setFilterStatus] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -61,17 +63,27 @@ export default function AssetAssignmentPage() {
   const [totalPages, setTotalPages] = useState(0);
 
   // === FETCH DATA ===
-  useEffect(() => { fetchEmployees(); }, []);
+  useEffect(() => { 
+    fetchEmployees(); 
+    fetchDepartments(); // ← FETCH DEPARTMENTS
+  }, []);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => fetchAssignments(), 300);
     return () => clearTimeout(timeoutId);
-  }, [currentPage, searchTerm, filterEmployee, filterStatus]);
+  }, [currentPage, searchTerm, filterDepartment, filterStatus]); // ← CẬP NHẬT DEPENDENCY
 
   const fetchEmployees = async () => {
     try {
       const data = await employeeService.getAll({ page: 1, pageSize: 1000 });
       setEmployees(data.data);
+    } catch (err) { console.error(err); }
+  };
+
+  const fetchDepartments = async () => {
+    try {
+      const data = await departmentService.getAll({ page: 1, pageSize: 1000 });
+      setDepartments(data.data);
     } catch (err) { console.error(err); }
   };
 
@@ -89,7 +101,7 @@ export default function AssetAssignmentPage() {
         page: currentPage,
         pageSize: itemsPerPage,
         search: searchTerm.trim(),
-        employeeId: filterEmployee ? parseInt(filterEmployee) : undefined,
+        departmentId: filterDepartment ? parseInt(filterDepartment) : undefined, // ← SỬ DỤNG departmentId
         status: filterStatus ? (filterStatus as AssignmentStatus) : undefined,
       });
       setAssignments(data.data);
@@ -208,7 +220,7 @@ export default function AssetAssignmentPage() {
         </div>
       </div>
 
-      {/* Filters – CHỮ ĐẬM + ĐẸP */}
+      {/* ✅ FILTERS – ĐÃ THAY ĐỔI: PHÒNG BAN THAY VÌ NHÂN VIÊN */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="relative">
@@ -221,18 +233,21 @@ export default function AssetAssignmentPage() {
               className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-gray-900 placeholder-gray-500"
             />
           </div>
+          
+          {/* ✅ DROPDOWN LỌC THEO PHÒNG BAN */}
           <select
-            value={filterEmployee}
-            onChange={(e) => { setFilterEmployee(e.target.value); setCurrentPage(1); }}
+            value={filterDepartment}
+            onChange={(e) => { setFilterDepartment(e.target.value); setCurrentPage(1); }}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-gray-900"
           >
-            <option value="">Tất cả nhân viên</option>
-            {employees.map(emp => (
-              <option key={emp.id} value={emp.id}>
-                {emp.full_name} - {emp.employee_code}
+            <option value="">Tất cả phòng ban</option>
+            {departments.map(dept => (
+              <option key={dept.id} value={dept.id}>
+                {dept.name}
               </option>
             ))}
           </select>
+
           <select
             value={filterStatus}
             onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
@@ -245,7 +260,7 @@ export default function AssetAssignmentPage() {
         </div>
       </div>
 
-      {/* Table – CHỮ ĐẬM RÕ RÀNG */}
+      {/* Table */}
       {loading ? (
         <div className="bg-white rounded-lg shadow-sm p-16 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mx-auto mb-4" />
@@ -266,6 +281,7 @@ export default function AssetAssignmentPage() {
                     <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Mã TS</th>
                     <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Tên tài sản</th>
                     <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Nhân viên</th>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Phòng ban</th> {/* ← THÊM CỘT MỚI */}
                     <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Ngày phân công</th>
                     {currentView === 'history' && <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Ngày trả</th>}
                     <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Trạng thái</th>
@@ -275,7 +291,7 @@ export default function AssetAssignmentPage() {
                 <tbody className="divide-y divide-gray-200">
                   {filteredForView.length === 0 ? (
                     <tr>
-                      <td colSpan={currentView === 'history' ? 7 : 6} className="px-6 py-24 text-center">
+                      <td colSpan={currentView === 'history' ? 8 : 7} className="px-6 py-24 text-center">
                         <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                         <p className="text-lg font-semibold text-gray-600">
                           {currentView === 'list' ? 'Không có tài sản nào đang được phân công' : 'Không có lịch sử phân công'}
@@ -288,6 +304,9 @@ export default function AssetAssignmentPage() {
                         <td className="px-6 py-4 font-bold text-gray-900">{assignment.asset.asset_code}</td>
                         <td className="px-6 py-4 font-semibold text-gray-900">{assignment.asset.asset_name}</td>
                         <td className="px-6 py-4 font-semibold text-gray-900">{assignment.employee.full_name}</td>
+                        <td className="px-6 py-4 text-gray-700 font-medium">
+                          {(assignment.employee as any).department_relation?.name || assignment.employee.department || 'Chưa xác định'}
+                        </td>
                         <td className="px-6 py-4 text-gray-700">{assignment.assignment_date}</td>
                         {currentView === 'history' && (
                           <td className="px-6 py-4 text-gray-700">{assignment.return_date || '-'}</td>
@@ -409,12 +428,12 @@ export default function AssetAssignmentPage() {
         </div>
       </Modal>
 
-      {/* MODAL CHI TIẾT – CHỮ ĐẬM SIÊU ĐẸP */}
+      {/* MODAL CHI TIẾT */}
       <Modal isOpen={showDetailModal} onClose={() => setShowDetailModal(false)} title="Chi tiết Phân công" size="lg">
         {selectedAssignment && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-2xl">
-              <h3 className="text-xl font-bold text-blue玲-900 mb-5 flex items-center gap-3">
+              <h3 className="text-xl font-bold text-blue-900 mb-5 flex items-center gap-3">
                 <Package size={24} /> Thông tin Tài sản
               </h3>
               <div className="space-y-4 text-lg">
@@ -431,7 +450,7 @@ export default function AssetAssignmentPage() {
               <div className="space-y-4 text-lg">
                 <div className="flex justify-between"><span className="font-bold text-gray-700">Mã NV:</span> <span className="font-black text-gray-900">{selectedAssignment.employee.employee_code}</span></div>
                 <div className="flex justify-between"><span className="font-bold text-gray-700">Họ tên:</span> <span className="font-black text-gray-900">{selectedAssignment.employee.full_name}</span></div>
-                <div className="flex justify-between"><span className="font-bold text-gray-700">Phòng ban:</span> <span className="font-black text-gray-900">{selectedAssignment.employee.department || 'N/A'}</span></div>
+                <div className="flex justify-between"><span className="font-bold text-gray-700">Phòng ban:</span> <span className="font-black text-gray-900">{(selectedAssignment.employee as any).department_relation?.name || selectedAssignment.employee.department || 'N/A'}</span></div>
                 <div className="flex justify-between"><span className="font-bold text-gray-700">Chức vụ:</span> <span className="font-black text-gray-900">{selectedAssignment.employee.position || 'N/A'}</span></div>
               </div>
             </div>
@@ -466,7 +485,7 @@ export default function AssetAssignmentPage() {
         </div>
       </Modal>
 
-      {/* MODAL XÁC NHẬN THU HỒI – ĐẸP NHƯ PHÂN CÔNG MỚI */}
+      {/* MODAL XÁC NHẬN THU HỒI */}
       <Modal isOpen={showReturnModal} onClose={() => setShowReturnModal(false)} title="Xác nhận Thu hồi Tài sản" size="md">
         {selectedAssignment && (
           <div className="text-center py-6">
