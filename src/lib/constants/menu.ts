@@ -103,6 +103,18 @@ export const MENU_ITEMS: MenuItem[] = [
         href: ROUTES.DASHBOARD.HR.REQUESTS,
         roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN, UserRole.EMPLOYEE],
       },
+      {
+        label: 'Cài đặt Lương',
+        icon: Settings,
+        href: '/dashboard/hr/salary-settings',
+        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN],
+      },
+      {
+        label: 'Quản lý Lương',
+        icon: DollarSign,
+        href: '/dashboard/hr/salary',
+        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN],
+      },
     ],
   },
   // ✅ QUẢN LÝ DỰ ÁN - Không có children, children sẽ được inject động từ API
@@ -116,6 +128,12 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Yêu cầu nghỉ phép',
     icon: CheckSquare,
     href: ROUTES.DASHBOARD.HR.REQUESTS,
+    roles: [UserRole.EMPLOYEE],
+  },
+  {
+    label: 'Bảng lương',
+    icon: DollarSign,
+    href: '/dashboard/salary',
     roles: [UserRole.EMPLOYEE],
   },
   {

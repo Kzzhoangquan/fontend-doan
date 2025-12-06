@@ -25,6 +25,12 @@ export interface Employee {
   status: string;
   roles: Role[];
   password?: string;
+  is_verified?: boolean;
+  // Salary settings
+  base_salary?: number;
+  allowance?: number;
+  insurance_rate?: number;
+  overtime_rate?: number;
 }
 
 export interface EmployeesResponse {

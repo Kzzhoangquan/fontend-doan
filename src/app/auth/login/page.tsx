@@ -27,7 +27,14 @@ export default function LoginPage() {
       // REDIRECT VỀ DASHBOARD
       window.location.href = '/dashboard';
     } catch (err: any) {
-      setError(err.message || 'Đăng nhập thất bại');
+      const errorMessage = err.message || 'Đăng nhập thất bại';
+      setError(errorMessage);
+      
+      // Nếu lỗi là chưa verify, hiển thị link resend
+      if (errorMessage.includes('chưa được xác thực') || errorMessage.includes('verify')) {
+        // Có thể thêm UI để resend verification email
+      }
+      
       console.error('Login error:', err);
     } finally {
       setLoading(false);

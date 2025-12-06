@@ -3,10 +3,13 @@
 
 import { useState, useEffect } from 'react';
 import { notification } from 'antd';
-import { Calendar, Search, Plus, Edit, Trash2, Eye, Loader2, Clock, User, BarChart3, TrendingUp, X, CheckCircle } from 'lucide-react';
+import { Calendar, Search, Plus, Edit, Trash2, Eye, Loader2, Clock, User, BarChart3, TrendingUp, X, CheckCircle, Camera, MapPin, Smartphone, Shield } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { attendanceService, Attendance, CreateAttendanceDto, UpdateAttendanceDto } from '@/lib/api/services/attendance.service';
 import { employeeService, Employee } from '@/lib/api/services/employee.service';
+import { AttendanceActionType, attendanceVerificationService, TodayStatus, AttendanceResult } from '@/lib/api/services/attendance-verification.service';
+import AttendanceVerificationModal from '@/components/attendance/AttendanceVerificationModal';
+import AttendanceCalendar from '@/components/attendance/AttendanceCalendar';
 import { useAuth } from '@/hooks/useAuth';
 import { UserRole } from '@/lib/constants/roles';
 
@@ -44,9 +47,58 @@ export default function AttendancePage() {
   const [allAttendances, setAllAttendances] = useState<Attendance[]>([]);
   const [statsLoading, setStatsLoading] = useState(false);
 
+  // Verification modal state
+  const [verificationModalOpen, setVerificationModalOpen] = useState(false);
+  const [verificationAction, setVerificationAction] = useState<AttendanceActionType>(AttendanceActionType.CHECK_IN);
+  const [todayStatus, setTodayStatus] = useState<TodayStatus | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [currentDateFormatted, setCurrentDateFormatted] = useState<string>('');
+  const [isClient, setIsClient] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('calendar');
+
   // Check if user is employee (can only see their own attendance)
   const isEmployee = hasRole(UserRole.EMPLOYEE) && !hasRole(UserRole.MANAGER) && !hasRole(UserRole.SUPER_ADMIN);
   const canManage = hasRole(UserRole.MANAGER) || hasRole(UserRole.SUPER_ADMIN);
+
+  // Set client-side only values after mount to avoid hydration mismatch
+  useEffect(() => {
+    setIsClient(true);
+    setCurrentDateFormatted(
+      new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    );
+  }, []);
+
+  // Fetch today's status for current user
+  const fetchTodayStatus = async () => {
+    if (!user?.id) return;
+    
+    setStatusLoading(true);
+    try {
+      const status = await attendanceVerificationService.getTodayStatus();
+      if (status) {
+        setTodayStatus(status);
+      } else {
+        // Set default status so UI doesn't break
+        setTodayStatus({
+          date: new Date().toISOString(),
+          has_checked_in: false,
+          has_checked_out: false,
+          check_in_time: null,
+          check_out_time: null,
+          check_in_photo_url: null,
+          check_out_photo_url: null,
+          work_hours: null,
+          late_minutes: null,
+          early_leave_minutes: null,
+          is_verified: null,
+        });
+      }
+    } catch (err: any) {
+      console.error('Error fetching today status:', err);
+    } finally {
+      setStatusLoading(false);
+    }
+  };
 
   // Fetch attendances với debounce
   useEffect(() => {
@@ -61,6 +113,13 @@ export default function AttendancePage() {
   useEffect(() => {
     fetchAllAttendancesForStats();
   }, []);
+
+  // Fetch today status on mount
+  useEffect(() => {
+    if (isEmployee) {
+      fetchTodayStatus();
+    }
+  }, [isEmployee, user?.id]);
 
   const fetchAllAttendancesForStats = async () => {
     setStatsLoading(true);
@@ -269,44 +328,33 @@ export default function AttendancePage() {
     }
   };
 
-  const handleCheckIn = async () => {
-    if (!user?.id) {
-      showNotification('error', 'Không tìm thấy thông tin nhân viên');
-      return;
-    }
-
-    try {
-      setFormSubmitting(true);
-      await attendanceService.checkIn(user.id);
-      showNotification('success', 'Check-in thành công!');
-      fetchAttendances();
-    } catch (err: any) {
-      showNotification('error', 'Không thể check-in', err.response?.data?.message);
-    } finally {
-      setFormSubmitting(false);
-    }
+  // New secure check-in handler
+  const handleSecureCheckIn = () => {
+    setVerificationAction(AttendanceActionType.CHECK_IN);
+    setVerificationModalOpen(true);
   };
 
-  const handleCheckOut = async () => {
-    if (!user?.id) {
-      showNotification('error', 'Không tìm thấy thông tin nhân viên');
-      return;
-    }
+  // New secure check-out handler
+  const handleSecureCheckOut = () => {
+    setVerificationAction(AttendanceActionType.CHECK_OUT);
+    setVerificationModalOpen(true);
+  };
 
-    try {
-      setFormSubmitting(true);
-      await attendanceService.checkOut(user.id);
-      showNotification('success', 'Check-out thành công!');
-      fetchAttendances();
-    } catch (err: any) {
-      showNotification('error', 'Không thể check-out', err.response?.data?.message);
-    } finally {
-      setFormSubmitting(false);
-    }
+  // Handle verification success
+  const handleVerificationSuccess = (result: AttendanceResult) => {
+    showNotification(
+      result.is_verified ? 'success' : 'warning',
+      result.action_type === AttendanceActionType.CHECK_IN ? 'Check-in thành công!' : 'Check-out thành công!',
+      result.is_verified 
+        ? 'Đã xác thực thành công'
+        : result.verification_notes
+    );
+    fetchAttendances();
+    fetchTodayStatus();
   };
 
   const formatTime = (dateString: string | null) => {
-    if (!dateString || typeof window === 'undefined') return 'N/A';
+    if (!dateString || !isClient) return 'N/A';
     try {
       return new Date(dateString).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     } catch {
@@ -315,7 +363,7 @@ export default function AttendancePage() {
   };
 
   const formatDate = (dateString: string) => {
-    if (typeof window === 'undefined') return dateString;
+    if (!isClient) return dateString;
     try {
       return new Date(dateString).toLocaleDateString('vi-VN');
     } catch {
@@ -362,7 +410,7 @@ export default function AttendancePage() {
       .sort(([a], [b]) => a.localeCompare(b))
       .slice(-7) // Last 7 days
       .map(([date, stats]) => ({
-        date: typeof window !== 'undefined' ? new Date(date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : date,
+        date: isClient ? new Date(date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : date,
         'Số ca': stats.total,
         'Đi muộn': stats.late,
         'Giờ làm': Number(stats.hours.toFixed(2)),
@@ -383,6 +431,123 @@ export default function AttendancePage() {
   return (
     <div className="space-y-6">
       {contextHolder}
+      
+      {/* Verification Modal */}
+      <AttendanceVerificationModal
+        isOpen={verificationModalOpen}
+        actionType={verificationAction}
+        onClose={() => setVerificationModalOpen(false)}
+        onSuccess={handleVerificationSuccess}
+      />
+
+      {/* Today's Status Card for Employees */}
+      {isEmployee && (
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg p-6 text-white">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-white/20 rounded-lg">
+                <Shield className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Chấm công hôm nay</h2>
+                <p className="text-white/80 text-sm" suppressHydrationWarning>
+                  {isClient ? currentDateFormatted : ''}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {statusLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="w-6 h-6 animate-spin" />
+            </div>
+          ) : todayStatus ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-white/10 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Clock className="w-4 h-4" />
+                  <span className="text-sm font-medium">Check-in</span>
+                </div>
+                <p className="text-2xl font-bold">
+                  {todayStatus.check_in_time ? formatTime(todayStatus.check_in_time) : '--:--'}
+                </p>
+              </div>
+              <div className="bg-white/10 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Clock className="w-4 h-4" />
+                  <span className="text-sm font-medium">Check-out</span>
+                </div>
+                <p className="text-2xl font-bold">
+                  {todayStatus.check_out_time ? formatTime(todayStatus.check_out_time) : '--:--'}
+                </p>
+              </div>
+              <div className="bg-white/10 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <BarChart3 className="w-4 h-4" />
+                  <span className="text-sm font-medium">Giờ làm</span>
+                </div>
+                <p className="text-2xl font-bold">
+                  {todayStatus.work_hours ? `${Number(todayStatus.work_hours).toFixed(1)}h` : '-'}
+                </p>
+              </div>
+              <div className="bg-white/10 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  {todayStatus.is_verified ? (
+                    <CheckCircle className="w-4 h-4 text-green-300" />
+                  ) : (
+                    <X className="w-4 h-4 text-yellow-300" />
+                  )}
+                  <span className="text-sm font-medium">Trạng thái</span>
+                </div>
+                <p className="text-lg font-bold">
+                  {todayStatus.is_verified ? 'Đã xác thực' : todayStatus.has_checked_in ? 'Chờ xác thực' : 'Chưa chấm công'}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleSecureCheckIn}
+              disabled={formSubmitting || todayStatus?.has_checked_in}
+              className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-medium transition-all ${
+                todayStatus?.has_checked_in
+                  ? 'bg-white/10 text-white/50 cursor-not-allowed'
+                  : 'bg-green-500 hover:bg-green-600 text-white shadow-lg hover:shadow-xl'
+              }`}
+            >
+              <Camera className="w-5 h-5" />
+              <span>Check-in có xác thực</span>
+            </button>
+            <button
+              onClick={handleSecureCheckOut}
+              disabled={formSubmitting || !todayStatus?.has_checked_in || todayStatus?.has_checked_out}
+              className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-medium transition-all ${
+                !todayStatus?.has_checked_in || todayStatus?.has_checked_out
+                  ? 'bg-white/10 text-white/50 cursor-not-allowed'
+                  : 'bg-red-500 hover:bg-red-600 text-white shadow-lg hover:shadow-xl'
+              }`}
+            >
+              <Camera className="w-5 h-5" />
+              <span>Check-out có xác thực</span>
+            </button>
+          </div>
+
+          {/* Verification Features */}
+          <div className="mt-4 flex items-center justify-center gap-6 text-sm text-white/70">
+            <div className="flex items-center gap-2">
+              <Camera className="w-4 h-4" />
+              <span>Ảnh xác thực</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Smartphone className="w-4 h-4" />
+              <span>Thiết bị đăng ký</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Statistics Section */}
       {!statsLoading && allAttendances.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
@@ -474,26 +639,29 @@ export default function AttendancePage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {isEmployee && (
-              <>
-                <button
-                  onClick={handleCheckIn}
-                  disabled={formSubmitting}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                >
-                  <Clock className="w-5 h-5" />
-                  Check-in
-                </button>
-                <button
-                  onClick={handleCheckOut}
-                  disabled={formSubmitting}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-                >
-                  <Clock className="w-5 h-5" />
-                  Check-out
-                </button>
-              </>
-            )}
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'calendar'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Lịch
+              </button>
+              <button
+                onClick={() => setViewMode('table')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'table'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Bảng
+              </button>
+            </div>
             {canManage && (
               <button
                 onClick={openCreateModal}
@@ -566,18 +734,28 @@ export default function AttendancePage() {
         </div>
       )}
 
-      {/* Loading */}
-      {loading ? (
-        <div className="bg-white rounded-xl shadow-sm p-12">
-          <div className="flex flex-col items-center justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-            <p className="text-gray-600">Đang tải dữ liệu...</p>
-          </div>
-        </div>
-      ) : (
+      {/* Calendar View */}
+      {viewMode === 'calendar' && (
+        <AttendanceCalendar
+          employeeId={isEmployee ? user?.id : filterEmployeeId}
+        />
+      )}
+
+      {/* Table View */}
+      {viewMode === 'table' && (
         <>
-          {/* Table */}
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          {/* Loading */}
+          {loading ? (
+            <div className="bg-white rounded-xl shadow-sm p-12">
+              <div className="flex flex-col items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                <p className="text-gray-600">Đang tải dữ liệu...</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Table */}
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
@@ -596,6 +774,9 @@ export default function AttendancePage() {
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
                       Giờ làm
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+                      Xác thực
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
                       Muộn/ Sớm
@@ -638,6 +819,23 @@ export default function AttendancePage() {
                             ? `${Number(att.work_hours).toFixed(2)}h` 
                             : calculateWorkHours(att.check_in, att.check_out)}
                         </p>
+                      </td>
+                      <td className="px-6 py-4">
+                        {(att as any).is_verified ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                            <CheckCircle className="w-3 h-3" />
+                            Đã xác thực
+                          </span>
+                        ) : (att as any).check_in_photo_url ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                            <Camera className="w-3 h-3" />
+                            Có ảnh
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                            Không xác thực
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="space-y-1">
@@ -749,6 +947,8 @@ export default function AttendancePage() {
               </div>
             </div>
           )}
+            </>
+          )}
         </>
       )}
 
@@ -766,7 +966,7 @@ export default function AttendancePage() {
                 onClick={closeModal}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <Loader2 className="w-5 h-5 text-gray-500" />
+                <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
 
@@ -795,6 +995,29 @@ export default function AttendancePage() {
                   value={selectedAttendance.early_leave_minutes ? `${selectedAttendance.early_leave_minutes} phút` : '0 phút'}
                 />
                 <DetailField label="Ghi chú" value={selectedAttendance.note || 'N/A'} />
+                
+                {/* Verification Info */}
+                {(selectedAttendance as any).check_in_photo_url && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Ảnh Check-in</p>
+                    <img 
+                      src={(selectedAttendance as any).check_in_photo_url} 
+                      alt="Check-in" 
+                      className="w-32 h-32 object-cover rounded-lg"
+                    />
+                  </div>
+                )}
+                {(selectedAttendance as any).check_out_photo_url && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Ảnh Check-out</p>
+                    <img 
+                      src={(selectedAttendance as any).check_out_photo_url} 
+                      alt="Check-out" 
+                      className="w-32 h-32 object-cover rounded-lg"
+                    />
+                  </div>
+                )}
+                
                 <div className="flex items-center justify-end pt-4 border-t">
                   <button
                     onClick={closeModal}
@@ -935,7 +1158,3 @@ function DetailField({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
-
-
-

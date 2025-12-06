@@ -117,6 +117,24 @@ export const leaveRequestService = {
     const response = await api.post<LeaveRequest>(`/leave-requests/${id}/cancel`);
     return response.data;
   },
+
+  getLeaveBalance: async (employeeId?: number, year?: number): Promise<{
+    limit: number;
+    used: number;
+    remaining: number;
+    year: number;
+  }> => {
+    const params: any = {};
+    if (year) params.year = year;
+    
+    if (employeeId) {
+      const response = await api.get(`/leave-requests/balance/${employeeId}`, { params });
+      return response.data;
+    } else {
+      const response = await api.get('/leave-requests/balance', { params });
+      return response.data;
+    }
+  },
 };
 
 

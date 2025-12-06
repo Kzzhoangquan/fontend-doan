@@ -26,6 +26,7 @@ import { positionService, Position } from '@/lib/api/services/position.service';
 import { roleService, Role } from '@/lib/api/services/role.service';
 import { useAuth } from '@/hooks/useAuth';
 import { UserRole } from '@/lib/constants/roles';
+import { resendVerificationEmail } from '@/lib/api/auth';
 
 export default function EmployeesPage() {
   const [notificationApi, contextHolder] = notification.useNotification();
@@ -61,6 +62,10 @@ export default function EmployeesPage() {
     position: '',
     status: 'ACTIVE',
     password: '',
+    base_salary: undefined,
+    allowance: undefined,
+    insurance_rate: 10.5,
+    overtime_rate: 1.5,
   });
 
   // Fetch employees với debounce
@@ -241,6 +246,10 @@ export default function EmployeesPage() {
       position: '',
       status: 'ACTIVE',
       password: '',
+      base_salary: undefined,
+      allowance: undefined,
+      insurance_rate: 10.5,
+      overtime_rate: 1.5,
     });
     setFormError('');
     // Đảm bảo load lại danh sách departments và positions khi mở modal
@@ -255,6 +264,33 @@ export default function EmployeesPage() {
       setFormSubmitting(true);
       const employee = await employeeService.getById(employeeId);
       setSelectedEmployee(employee);
+      
+      // Load salary settings (try employee-specific first, then role-based)
+      let salarySettings = null;
+      try {
+        // First try to get employee-specific settings
+        salarySettings = await salarySettingsService.getByEmployee(employeeId);
+        if (!salarySettings || !salarySettings.base_salary) {
+          // If no employee-specific, try effective (which includes role-based)
+          try {
+            salarySettings = await salarySettingsService.getEffective(employeeId);
+          } catch (err) {
+            // If still no settings, try role-based directly
+            if (employee.roles && employee.roles.length > 0) {
+              try {
+                salarySettings = await salarySettingsService.getByRole(employee.roles[0].id);
+              } catch (err2) {
+                console.log('No salary settings found for employee or role');
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error loading salary settings:', err);
+      }
+      
+      console.log('Loaded salary settings:', salarySettings);
+      
       setFormData({
         full_name: employee.full_name,
         username: employee.username,
@@ -265,6 +301,10 @@ export default function EmployeesPage() {
         position: employee.position || '',
         status: employee.status,
         password: '',
+        base_salary: salarySettings?.base_salary ? Number(salarySettings.base_salary) : undefined,
+        allowance: salarySettings?.allowance ? Number(salarySettings.allowance) : undefined,
+        insurance_rate: salarySettings?.insurance_rate ? Number(salarySettings.insurance_rate) : 10.5,
+        overtime_rate: salarySettings?.overtime_rate ? Number(salarySettings.overtime_rate) : 1.5,
       });
       setModalMode('edit');
     } catch (err: any) {
@@ -802,13 +842,36 @@ export default function EmployeesPage() {
                     onChange={(value) => handleFormChange('password', value)}
                     placeholder={modalMode === 'edit' ? 'Để trống nếu không đổi' : 'Nhập mật khẩu (tùy chọn)'}
                   />
-                  <InputField
-                    label="Email"
-                    type="email"
-                    required
-                    value={formData.email || ''}
-                    onChange={(value) => handleFormChange('email', value)}
-                  />
+                  <div>
+                    <InputField
+                      label="Email"
+                      type="email"
+                      required
+                      value={formData.email || ''}
+                      onChange={(value) => handleFormChange('email', value)}
+                    />
+                    {modalMode === 'edit' && selectedEmployee && !selectedEmployee.is_verified && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            setFormSubmitting(true);
+                            await resendVerificationEmail(selectedEmployee.email);
+                            showNotification('success', 'Thành công', 'Email xác thực đã được gửi lại!');
+                          } catch (err: any) {
+                            showNotification('error', 'Lỗi', err.message || 'Không thể gửi email xác thực');
+                          } finally {
+                            setFormSubmitting(false);
+                          }
+                        }}
+                        disabled={formSubmitting}
+                        className="mt-2 flex items-center gap-2 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        <Mail className="w-4 h-4" />
+                        Gửi lại email xác thực
+                      </button>
+                    )}
+                  </div>
                   <InputField
                     label="Mã nhân viên"
                     required
@@ -854,6 +917,46 @@ export default function EmployeesPage() {
                       <option value="SUSPENDED">Tạm khóa</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Salary Settings Section */}
+                <div className="border-t pt-4 mt-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Cài đặt Lương</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InputField
+                      label="Lương cơ bản (VNĐ)"
+                      type="number"
+                      value={formData.base_salary !== undefined && formData.base_salary !== null ? formData.base_salary.toString() : ''}
+                      onChange={(value) => handleFormChange('base_salary', value ? parseFloat(value) : undefined)}
+                      placeholder="VD: 10000000"
+                    />
+                    <InputField
+                      label="Phụ cấp (VNĐ)"
+                      type="number"
+                      value={formData.allowance !== undefined && formData.allowance !== null ? formData.allowance.toString() : ''}
+                      onChange={(value) => handleFormChange('allowance', value ? parseFloat(value) : undefined)}
+                      placeholder="VD: 500000"
+                    />
+                    <InputField
+                      label="Tỷ lệ bảo hiểm (%)"
+                      type="number"
+                      step="0.1"
+                      value={formData.insurance_rate !== undefined && formData.insurance_rate !== null ? formData.insurance_rate.toString() : '10.5'}
+                      onChange={(value) => handleFormChange('insurance_rate', value ? parseFloat(value) : 10.5)}
+                      placeholder="Mặc định: 10.5"
+                    />
+                    <InputField
+                      label="Hệ số làm thêm giờ"
+                      type="number"
+                      step="0.1"
+                      value={formData.overtime_rate !== undefined && formData.overtime_rate !== null ? formData.overtime_rate.toString() : '1.5'}
+                      onChange={(value) => handleFormChange('overtime_rate', value ? parseFloat(value) : 1.5)}
+                      placeholder="Mặc định: 1.5"
+                    />
+                  </div>
+                  <p className="text-sm text-gray-500 mt-2">
+                    <strong>Lưu ý:</strong> Các trường này là tùy chọn. Nếu không nhập, hệ thống sẽ sử dụng cài đặt lương theo vai trò (nếu có).
+                  </p>
                 </div>
 
                 <div className="flex items-center justify-end gap-3 pt-4 border-t">
@@ -973,14 +1076,16 @@ function InputField({
   required,
   disabled,
   placeholder,
+  step,
 }: {
   label: string;
   value: string;
-  onChange: (value: string) => void;
+  onChange: (value: string | number | undefined) => void;
   type?: string;
   required?: boolean;
   disabled?: boolean;
   placeholder?: string;
+  step?: string;
 }) {
   return (
     <div>
@@ -994,6 +1099,7 @@ function InputField({
         required={required}
         disabled={disabled}
         placeholder={placeholder}
+        step={step}
         className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
       />
     </div>
