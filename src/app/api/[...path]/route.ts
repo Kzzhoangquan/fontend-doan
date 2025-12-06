@@ -6,7 +6,9 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3000';
 async function handleRequest(request: NextRequest, params: Promise<{ path: string[] }>) {
   const { path: pathSegments } = await params;
   const path = pathSegments.join('/');
-  const url = `${BACKEND_URL}/${path}${request.nextUrl.search}`;
+  // Remove leading slash if exists to avoid double slashes
+  const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+  const url = `${BACKEND_URL}/${cleanPath}${request.nextUrl.search}`;
 
   // LOG ĐỂ DEBUG
   console.log(`[PROXY] ${request.method} /api/${path} → ${url}`);

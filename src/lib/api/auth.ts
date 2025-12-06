@@ -40,3 +40,29 @@ export const getCurrentUser = () => {
 export const getTokens = () => {
   return storage.getTokens();
 };
+
+export const verifyEmail = async (token: string) => {
+  try {
+    const res = await api.post('/auth/verify-email', { token });
+    return res.data;
+  } catch (error: any) {
+    const message =
+      error.response?.data?.message ||
+      error.message ||
+      'Xác thực email thất bại';
+    throw new Error(message);
+  }
+};
+
+export const resendVerificationEmail = async (email: string) => {
+  try {
+    const res = await api.post('/auth/resend-verification', { email });
+    return res.data;
+  } catch (error: any) {
+    const message =
+      error.response?.data?.message ||
+      error.message ||
+      'Gửi email xác thực thất bại';
+    throw new Error(message);
+  }
+};

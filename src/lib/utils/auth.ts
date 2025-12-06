@@ -1,8 +1,34 @@
 const TOKEN_KEY = 'auth_token';
+const TOKENS_KEY = 'auth_tokens'; // Used by login flow
 
 export const getToken = (): string | null => {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(TOKEN_KEY);
+  
+  // Try auth_tokens first (used by login flow)
+  const tokensJson = localStorage.getItem(TOKENS_KEY);
+  if (tokensJson) {
+    try {
+      const tokens = JSON.parse(tokensJson);
+      if (tokens.accessToken) return tokens.accessToken;
+    } catch (e) {
+      // Invalid JSON, ignore
+    }
+  }
+  
+  // Fallback to auth_token (simple string)
+  const localToken = localStorage.getItem(TOKEN_KEY);
+  if (localToken) return localToken;
+  
+  // Fallback to cookie
+  const cookies = document.cookie.split(';');
+  for (const cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === TOKEN_KEY && value) {
+      return value;
+    }
+  }
+  
+  return null;
 };
 
 export const setToken = (token: string): void => {
