@@ -1,0 +1,21 @@
+{
+    "header": {
+      "systemName": "HRM System",
+      "systemDescription": "Hệ thống Quản lý Nhân sự & Dự án",
+      "searchPlaceholder": "Tìm kiếm nhanh (nhấn / để focus)...",
+      "searchResultsFound": "Tìm thấy {{count}} kết quả",
+      "searchHint": "💡 Sử dụng ↑↓ để di chuyển, Enter để chọn, Esc để đóng",
+      "noResults": "Không tìm thấy kết quả cho \"{{query}}\"",
+      "tryDifferentKeyword": "Thử tìm kiếm với từ khóa khác",
+      "employee": "Nhân viên",
+      "languages": {
+        "vietnamese": "Tiếng Việt",
+        "english": "English"
+      },
+      "userMenu": {
+        "profile": "Thông tin cá nhân",
+        "settings": "Cài đặt",
+        "logout": "Đăng xuất"
+      }
+    }
+}

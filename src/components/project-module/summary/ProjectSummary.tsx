@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useState } from 'react';
 import {
     Card,
@@ -23,6 +25,7 @@ import {
     FireOutlined,
     ThunderboltOutlined,
 } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next'; // 👈 Import
 import type { ColumnsType } from 'antd/es/table';
 import {
     PieChart,
@@ -66,6 +69,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => {
+    const { t } = useTranslation(); // 👈 Hook
     const [loading, setLoading] = useState(false);
     const [stats, setStats] = useState<ProjectOverallStatistics | null>(null);
 
@@ -90,7 +94,7 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
     if (loading) {
         return (
             <div style={{ padding: '24px', textAlign: 'center' }}>
-                <Spin size="large" />
+                <Spin size="large" tip={t('summary.loading')} />
             </div>
         );
     }
@@ -98,7 +102,7 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
     if (!stats) {
         return (
             <div style={{ padding: '24px' }}>
-                <Empty description="Không có dữ liệu thống kê" />
+                <Empty description={t('summary.noData')} />
             </div>
         );
     }
@@ -132,7 +136,6 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
             assigned: item.issues_assigned,
         }));
 
-    // Epic progress for radar chart
     const epicRadarData = stats.epic_stats.issue_distribution
         .slice(0, 5)
         .map((item) => ({
@@ -141,7 +144,6 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
             fullMark: 100,
         }));
 
-    // Sprint performance data
     const sprintPerformanceData = stats.sprint_stats.sprint_performance
         .slice(0, 5)
         .reverse()
@@ -150,15 +152,14 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
             rate: item.completion_rate,
         }));
 
-    // Custom label for Pie chart
     const renderCustomLabel = (entry: any) => {
         return `${entry.name}: ${entry.value}`;
     };
 
-    // Columns for Top Contributors Table
+    // 👇 Table columns với multilang
     const contributorColumns: ColumnsType<TopContributor> = [
         {
-            title: 'Contributor',
+            title: t('summary.table.contributor'),
             dataIndex: 'employee_name',
             key: 'employee_name',
             render: (text) => (
@@ -171,21 +172,21 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
             ),
         },
         {
-            title: 'Assigned',
+            title: t('summary.table.assigned'),
             dataIndex: 'issues_assigned',
             key: 'assigned',
             align: 'center',
             render: (count) => <Tag color="blue">{count}</Tag>,
         },
         {
-            title: 'Completed',
+            title: t('summary.table.completed'),
             dataIndex: 'issues_completed',
             key: 'completed',
             align: 'center',
             render: (count) => <Tag color="green">{count}</Tag>,
         },
         {
-            title: 'Rate',
+            title: t('summary.table.rate'),
             key: 'rate',
             align: 'center',
             render: (_, record) => {
@@ -197,15 +198,21 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
         },
     ];
 
+    // 👇 Helper để dịch sprint status
+    const getSprintStatusLabel = (status: string) => {
+        const statusKey = status.toLowerCase() as 'active' | 'completed' | 'planning' | 'closed';
+        return t(`summary.sprint.${statusKey}`, status.toUpperCase());
+    };
+
     return (
         <div style={{ padding: '24px', background: '#f0f2f5', minHeight: 'calc(100vh - 200px)' }}>
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                {/* KPI Cards - Simple & Clean */}
+                {/* KPI Cards */}
                 <Row gutter={[16, 16]}>
                     <Col xs={24} sm={12} lg={6}>
                         <Card bordered={false}>
                             <Statistic
-                                title="Total Issues"
+                                title={t('summary.kpi.totalIssues')}
                                 value={stats.issue_stats.total_issues}
                                 prefix={<FireOutlined style={{ color: '#1890ff' }} />}
                                 valueStyle={{ color: '#1890ff', fontSize: 28 }}
@@ -216,15 +223,15 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                     <Col xs={24} sm={12} lg={6}>
                         <Card bordered={false}>
                             <Statistic
-                                title="Resolution Rate"
+                                title={t('summary.kpi.resolutionRate')}
                                 value={stats.issue_stats.resolution_stats.resolution_rate.toFixed(1)}
                                 suffix="%"
                                 prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
                                 valueStyle={{ color: '#52c41a', fontSize: 28 }}
                             />
                             <Text type="secondary" style={{ fontSize: 12 }}>
-                                {stats.issue_stats.resolution_stats.resolved} resolved /{' '}
-                                {stats.issue_stats.resolution_stats.unresolved} open
+                                {stats.issue_stats.resolution_stats.resolved} {t('summary.kpi.resolved')} /{' '}
+                                {stats.issue_stats.resolution_stats.unresolved} {t('summary.kpi.open')}
                             </Text>
                         </Card>
                     </Col>
@@ -232,14 +239,14 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                     <Col xs={24} sm={12} lg={6}>
                         <Card bordered={false}>
                             <Statistic
-                                title="Avg Velocity"
+                                title={t('summary.kpi.avgVelocity')}
                                 value={stats.sprint_stats.velocity_stats.average_velocity.toFixed(1)}
                                 suffix="SP"
                                 prefix={<ThunderboltOutlined style={{ color: '#fa8c16' }} />}
                                 valueStyle={{ color: '#fa8c16', fontSize: 28 }}
                             />
                             <Text type="secondary" style={{ fontSize: 12 }}>
-                                {stats.sprint_stats.total_sprints} sprints completed
+                                {stats.sprint_stats.total_sprints} {t('summary.kpi.sprintsCompleted')}
                             </Text>
                         </Card>
                     </Col>
@@ -247,13 +254,13 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                     <Col xs={24} sm={12} lg={6}>
                         <Card bordered={false}>
                             <Statistic
-                                title="Team Members"
+                                title={t('summary.kpi.teamMembers')}
                                 value={stats.team_stats.total_members}
                                 prefix={<TeamOutlined style={{ color: '#722ed1' }} />}
                                 valueStyle={{ color: '#722ed1', fontSize: 28 }}
                             />
                             <Text type="secondary" style={{ fontSize: 12 }}>
-                                {stats.team_stats.active_contributors} active contributors
+                                {stats.team_stats.active_contributors} {t('summary.kpi.activeContributors')}
                             </Text>
                         </Card>
                     </Col>
@@ -261,13 +268,12 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
 
                 {/* Charts Row 1: Issues Distribution */}
                 <Row gutter={[16, 16]}>
-                    {/* Issues by Status - Pie Chart */}
                     <Col xs={24} lg={12}>
                         <Card
                             title={
                                 <Space>
                                     <ClockCircleOutlined style={{ color: '#1890ff' }} />
-                                    <span>Issues by Status</span>
+                                    <span>{t('summary.charts.issuesByStatus')}</span>
                                 </Space>
                             }
                             bordered={false}
@@ -298,13 +304,12 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                         </Card>
                     </Col>
 
-                    {/* Issues by Type - Bar Chart */}
                     <Col xs={24} lg={12}>
                         <Card
                             title={
                                 <Space>
                                     <RiseOutlined style={{ color: '#722ed1' }} />
-                                    <span>Issues by Type</span>
+                                    <span>{t('summary.charts.issuesByType')}</span>
                                 </Space>
                             }
                             bordered={false}
@@ -324,13 +329,12 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
 
                 {/* Charts Row 2: Velocity & Contributors */}
                 <Row gutter={[16, 16]}>
-                    {/* Velocity Trend - Line Chart */}
                     <Col xs={24} lg={12}>
                         <Card
                             title={
                                 <Space>
                                     <RocketOutlined style={{ color: '#1890ff' }} />
-                                    <span>Sprint Velocity Trend</span>
+                                    <span>{t('summary.charts.velocityTrend')}</span>
                                 </Space>
                             }
                             bordered={false}
@@ -347,7 +351,7 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                                         dataKey="completed"
                                         stroke="#52c41a"
                                         strokeWidth={2}
-                                        name="Completed SP"
+                                        name={t('summary.chartLabels.completedSP')}
                                         dot={{ r: 5 }}
                                     />
                                     <Line
@@ -356,7 +360,7 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                                         stroke="#1890ff"
                                         strokeWidth={2}
                                         strokeDasharray="5 5"
-                                        name="Committed SP"
+                                        name={t('summary.chartLabels.committedSP')}
                                         dot={{ r: 5 }}
                                     />
                                 </LineChart>
@@ -364,13 +368,12 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                         </Card>
                     </Col>
 
-                    {/* Top Contributors - Bar Chart */}
                     <Col xs={24} lg={12}>
                         <Card
                             title={
                                 <Space>
                                     <TeamOutlined style={{ color: '#fa8c16' }} />
-                                    <span>Top Contributors</span>
+                                    <span>{t('summary.charts.topContributors')}</span>
                                 </Space>
                             }
                             bordered={false}
@@ -382,8 +385,18 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                                     <YAxis />
                                     <RechartsTooltip />
                                     <Legend />
-                                    <Bar dataKey="assigned" fill="#1890ff" name="Assigned" radius={[8, 8, 0, 0]} />
-                                    <Bar dataKey="completed" fill="#52c41a" name="Completed" radius={[8, 8, 0, 0]} />
+                                    <Bar 
+                                        dataKey="assigned" 
+                                        fill="#1890ff" 
+                                        name={t('summary.chartLabels.assigned')} 
+                                        radius={[8, 8, 0, 0]} 
+                                    />
+                                    <Bar 
+                                        dataKey="completed" 
+                                        fill="#52c41a" 
+                                        name={t('summary.chartLabels.completed')} 
+                                        radius={[8, 8, 0, 0]} 
+                                    />
                                 </BarChart>
                             </ResponsiveContainer>
                         </Card>
@@ -392,14 +405,13 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
 
                 {/* Charts Row 3: Epic Progress & Sprint Performance */}
                 <Row gutter={[16, 16]}>
-                    {/* Epic Progress - Radar Chart */}
                     {epicRadarData.length > 0 && (
                         <Col xs={24} lg={12}>
                             <Card
                                 title={
                                     <Space>
                                         <FlagOutlined style={{ color: '#722ed1' }} />
-                                        <span>Epic Progress (Top 5)</span>
+                                        <span>{t('summary.charts.epicProgress')}</span>
                                     </Space>
                                 }
                                 bordered={false}
@@ -410,7 +422,7 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                                         <PolarAngleAxis dataKey="epic" />
                                         <PolarRadiusAxis angle={90} domain={[0, 100]} />
                                         <Radar
-                                            name="Progress %"
+                                            name={t('summary.chartLabels.progressPercent')}
                                             dataKey="progress"
                                             stroke="#722ed1"
                                             fill="#722ed1"
@@ -424,14 +436,13 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                         </Col>
                     )}
 
-                    {/* Sprint Completion Rate - Line Chart */}
                     {sprintPerformanceData.length > 0 && (
                         <Col xs={24} lg={epicRadarData.length > 0 ? 12 : 24}>
                             <Card
                                 title={
                                     <Space>
                                         <TrophyOutlined style={{ color: '#52c41a' }} />
-                                        <span>Sprint Completion Rate</span>
+                                        <span>{t('summary.charts.sprintCompletion')}</span>
                                     </Space>
                                 }
                                 bordered={false}
@@ -447,7 +458,7 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                                             dataKey="rate"
                                             stroke="#52c41a"
                                             strokeWidth={3}
-                                            name="Completion %"
+                                            name={t('summary.chartLabels.completionPercent')}
                                             dot={{ r: 6, fill: '#52c41a' }}
                                         />
                                     </LineChart>
@@ -462,7 +473,7 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                     title={
                         <Space>
                             <TrophyOutlined style={{ color: '#fa8c16' }} />
-                            <span>Story Points & Time Tracking</span>
+                            <span>{t('summary.charts.storyPointsTracking')}</span>
                         </Space>
                     }
                     bordered={false}
@@ -471,7 +482,7 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                         <Col xs={24} sm={12} md={6}>
                             <Card style={{ background: '#f0f5ff', border: 'none' }}>
                                 <Statistic
-                                    title="Total Story Points"
+                                    title={t('summary.storyPoints.total')}
                                     value={stats.issue_stats.time_stats.total_story_points}
                                     precision={0}
                                     valueStyle={{ color: '#1890ff' }}
@@ -481,7 +492,7 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                         <Col xs={24} sm={12} md={6}>
                             <Card style={{ background: '#f6ffed', border: 'none' }}>
                                 <Statistic
-                                    title="Avg Story Points"
+                                    title={t('summary.storyPoints.average')}
                                     value={stats.issue_stats.time_stats.average_story_points}
                                     precision={1}
                                     valueStyle={{ color: '#52c41a' }}
@@ -491,7 +502,7 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                         <Col xs={24} sm={12} md={6}>
                             <Card style={{ background: '#fff7e6', border: 'none' }}>
                                 <Statistic
-                                    title="Estimated Hours"
+                                    title={t('summary.storyPoints.estimatedHours')}
                                     value={stats.issue_stats.time_stats.total_estimated_hours}
                                     precision={1}
                                     suffix="h"
@@ -502,7 +513,7 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                         <Col xs={24} sm={12} md={6}>
                             <Card style={{ background: '#fff1f0', border: 'none' }}>
                                 <Statistic
-                                    title="Time Spent"
+                                    title={t('summary.storyPoints.timeSpent')}
                                     value={stats.issue_stats.time_stats.total_spent_hours}
                                     precision={1}
                                     suffix="h"
@@ -518,7 +529,7 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                     title={
                         <Space>
                             <TeamOutlined style={{ color: '#1890ff' }} />
-                            <span>Top Contributors Details</span>
+                            <span>{t('summary.charts.topContributorsDetails')}</span>
                         </Space>
                     }
                     bordered={false}
@@ -534,13 +545,12 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
 
                 {/* Summary Cards */}
                 <Row gutter={[16, 16]}>
-                    {/* Epic Summary */}
                     <Col xs={24} md={12}>
                         <Card
                             title={
                                 <Space>
                                     <FlagOutlined />
-                                    <span>Epic Summary</span>
+                                    <span>{t('summary.charts.epicSummary')}</span>
                                 </Space>
                             }
                             bordered={false}
@@ -548,21 +558,21 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                             <Row gutter={[16, 16]}>
                                 <Col span={8}>
                                     <Statistic
-                                        title="Total"
+                                        title={t('summary.epic.total')}
                                         value={stats.epic_stats.total_epics}
                                         valueStyle={{ color: '#1890ff' }}
                                     />
                                 </Col>
                                 <Col span={8}>
                                     <Statistic
-                                        title="Completed"
+                                        title={t('summary.epic.completed')}
                                         value={stats.epic_stats.completion_stats.completed}
                                         valueStyle={{ color: '#52c41a' }}
                                     />
                                 </Col>
                                 <Col span={8}>
                                     <Statistic
-                                        title="In Progress"
+                                        title={t('summary.epic.inProgress')}
                                         value={stats.epic_stats.completion_stats.in_progress}
                                         valueStyle={{ color: '#faad14' }}
                                     />
@@ -571,13 +581,12 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                         </Card>
                     </Col>
 
-                    {/* Sprint Summary */}
                     <Col xs={24} md={12}>
                         <Card
                             title={
                                 <Space>
                                     <RocketOutlined />
-                                    <span>Sprint Summary</span>
+                                    <span>{t('summary.charts.sprintSummary')}</span>
                                 </Space>
                             }
                             bordered={false}
@@ -595,7 +604,7 @@ export const ProjectSummary: React.FC<ProjectSummaryProps> = ({ projectId }) => 
                                                         : 'default'
                                                 }
                                             >
-                                                {status.status.toUpperCase()}
+                                                {getSprintStatusLabel(status.status)}
                                             </Tag>
                                             <Text strong style={{ fontSize: 16 }}>
                                                 {status.count}

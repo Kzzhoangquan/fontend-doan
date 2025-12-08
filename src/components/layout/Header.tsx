@@ -13,8 +13,10 @@ import {
   LogOut,
   ChevronDown,
   Command,
-  ArrowRight
+  ArrowRight,
+  Globe
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -23,24 +25,23 @@ interface HeaderProps {
 export default function Header({ onMenuClick }: HeaderProps) {
   const { user, logout, hasAnyRole } = useAuth();
   const router = useRouter();
+  const { t, i18n } = useTranslation(); // 👈 Thêm t để dịch
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showLangMenu, setShowLangMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<MenuItem[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  // ✅ SỬ DỤNG useMemo ĐỂ CACHE allMenuItems
   const allMenuItems = useMemo(() => {
     const flattenMenuItems = (items: MenuItem[]): MenuItem[] => {
       let result: MenuItem[] = [];
       
       items.forEach(item => {
-        // CHECK ROLE
         if (hasAnyRole(item.roles)) {
           result.push(item);
           
-          // Nếu có children, flatten children
           if (item.children) {
             const filteredChildren = item.children.filter(child => hasAnyRole(child.roles));
             result = [...result, ...filteredChildren];
@@ -52,9 +53,8 @@ export default function Header({ onMenuClick }: HeaderProps) {
     };
 
     return flattenMenuItems(MENU_ITEMS);
-  }, [user?.roles]); // ← Dùng user.roles thay vì hasAnyRole function
+  }, [user?.roles]);
 
-  // Search logic
   useEffect(() => {
     if (searchQuery.trim()) {
       const filtered = allMenuItems.filter(item =>
@@ -70,7 +70,6 @@ export default function Header({ onMenuClick }: HeaderProps) {
     }
   }, [searchQuery, allMenuItems]);
 
-  // Click outside to close
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
@@ -82,7 +81,6 @@ export default function Header({ onMenuClick }: HeaderProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Keyboard shortcut: / to focus search
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
@@ -96,7 +94,6 @@ export default function Header({ onMenuClick }: HeaderProps) {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, []);
 
-  // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!showSearchResults || searchResults.length === 0) return;
 
@@ -134,6 +131,12 @@ export default function Header({ onMenuClick }: HeaderProps) {
     logout();
   };
 
+  const changeLanguage = (lang: string) => {
+    i18n.changeLanguage(lang);
+    localStorage.setItem('i18nextLng', lang);
+    setShowLangMenu(false);
+  };
+
   const highlightMatch = (text: string, query: string) => {
     if (!query) return text;
     
@@ -153,6 +156,14 @@ export default function Header({ onMenuClick }: HeaderProps) {
     );
   };
 
+  const getCurrentLanguageInfo = () => {
+    const languages = {
+      vi: { name: 'Tiếng Việt', flag: '🇻🇳' },
+      en: { name: 'English', flag: '🇬🇧' }
+    };
+    return languages[i18n.language as keyof typeof languages] || languages.vi;
+  };
+
   return (
     <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-50">
       <div className="h-full px-4 flex items-center justify-between">
@@ -170,8 +181,12 @@ export default function Header({ onMenuClick }: HeaderProps) {
               <span className="text-white font-bold text-lg">HRM</span>
             </div>
             <div className="hidden md:block">
-              <h1 className="text-lg font-bold text-gray-900">HRM System</h1>
-              <p className="text-xs text-gray-500">Hệ thống Quản lý Nhân sự & Dự án</p>
+              <h1 className="text-lg font-bold text-gray-900">
+                {t('header.systemName')} {/* 👈 Dịch */}
+              </h1>
+              <p className="text-xs text-gray-500">
+                {t('header.systemDescription')} {/* 👈 Dịch */}
+              </p>
             </div>
           </div>
         </div>
@@ -188,7 +203,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={handleKeyDown}
               onFocus={() => searchQuery && setShowSearchResults(true)}
-              placeholder="Tìm kiếm nhanh (nhấn / để focus)..."
+              placeholder={t('header.searchPlaceholder')}
               className="w-full pl-10 pr-10 py-2 text-gray-900 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
             />
 
@@ -197,7 +212,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
               <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden max-h-96 overflow-y-auto">
                 <div className="p-2 bg-gray-50 border-b border-gray-200">
                   <p className="text-xs text-gray-500 px-2">
-                    Tìm thấy {searchResults.length} kết quả
+                    {t('header.searchResultsFound', { count: searchResults.length })} {/* 👈 Dịch */}
                   </p>
                 </div>
                 
@@ -237,7 +252,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
                 <div className="p-2 bg-gray-50 border-t border-gray-200">
                   <p className="text-xs text-gray-500 px-2">
-                    💡 Sử dụng ↑↓ để di chuyển, Enter để chọn, Esc để đóng
+                    {t('header.searchHint')} {/* 👈 Dịch */}
                   </p>
                 </div>
               </div>
@@ -250,10 +265,10 @@ export default function Header({ onMenuClick }: HeaderProps) {
                   <Search className="w-8 h-8 text-gray-400" />
                 </div>
                 <p className="text-sm text-gray-900 font-medium">
-                  Không tìm thấy kết quả cho "{searchQuery}"
+                  {t('header.noResults', { query: searchQuery })} {/* 👈 Dịch */}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Thử tìm kiếm với từ khóa khác
+                  {t('header.tryDifferentKeyword')} {/* 👈 Dịch */}
                 </p>
               </div>
             )}
@@ -266,6 +281,60 @@ export default function Header({ onMenuClick }: HeaderProps) {
           <button className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <Search className="w-5 h-5 text-gray-600" />
           </button>
+
+          {/* Language Switcher */}
+          <div className="relative">
+            <button
+              onClick={() => setShowLangMenu(!showLangMenu)}
+              className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Globe className="w-5 h-5 text-gray-600" />
+              <span className="hidden sm:inline text-sm text-gray-700">
+                {getCurrentLanguageInfo().flag}
+              </span>
+            </button>
+
+            {/* Language Dropdown */}
+            {showLangMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowLangMenu(false)}
+                />
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-20">
+                  <button
+                    onClick={() => changeLanguage('vi')}
+                    className={`w-full px-4 py-2 text-left text-sm flex items-center gap-3 transition-colors ${
+                      i18n.language === 'vi'
+                        ? 'bg-blue-50 text-blue-600 font-medium'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="text-lg">🇻🇳</span>
+                    <span>{t('header.languages.vietnamese')}</span> {/* 👈 Dịch */}
+                    {i18n.language === 'vi' && (
+                      <span className="ml-auto text-blue-600">✓</span>
+                    )}
+                  </button>
+                  
+                  <button
+                    onClick={() => changeLanguage('en')}
+                    className={`w-full px-4 py-2 text-left text-sm flex items-center gap-3 transition-colors ${
+                      i18n.language === 'en'
+                        ? 'bg-blue-50 text-blue-600 font-medium'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="text-lg">🇬🇧</span>
+                    <span>{t('header.languages.english')}</span> {/* 👈 Dịch */}
+                    {i18n.language === 'en' && (
+                      <span className="ml-auto text-blue-600">✓</span>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Notifications */}
           <button className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors">
@@ -286,7 +355,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
               />
               <div className="hidden md:block text-left">
                 <p className="text-sm font-medium text-gray-900">{user?.full_name || user?.username}</p>
-                <p className="text-xs text-gray-500">{user?.roles?.[0]?.name || 'Nhân viên'}</p>
+                <p className="text-xs text-gray-500">{user?.roles?.[0]?.name || t('header.employee')}</p> {/* 👈 Dịch */}
               </div>
               <ChevronDown className="w-4 h-4 text-gray-400" />
             </button>
@@ -309,7 +378,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                     className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
                   >
                     <User className="w-4 h-4" />
-                    Thông tin cá nhân
+                    {t('header.userMenu.profile')} {/* 👈 Dịch */}
                   </button>
                   
                   <button
@@ -317,7 +386,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                     className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
                   >
                     <Settings className="w-4 h-4" />
-                    Cài đặt
+                    {t('header.userMenu.settings')} {/* 👈 Dịch */}
                   </button>
                   
                   <div className="border-t border-gray-100 my-2" />
@@ -327,7 +396,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                     className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors"
                   >
                     <LogOut className="w-4 h-4" />
-                    Đăng xuất
+                    {t('header.userMenu.logout')} {/* 👈 Dịch */}
                   </button>
                 </div>
               </>

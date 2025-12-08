@@ -1,0 +1,21 @@
+{
+    "header": {
+        "systemName": "HRM System",
+        "systemDescription": "HR & Project Management System",
+        "searchPlaceholder": "Quick search (press / to focus)...",
+        "searchResultsFound": "Found {{count}} results",
+        "searchHint": "💡 Use ↑↓ to navigate, Enter to select, Esc to close",
+        "noResults": "No results found for \"{{query}}\"",
+        "tryDifferentKeyword": "Try searching with different keywords",
+        "employee": "Employee",
+        "languages": {
+            "vietnamese": "Tiếng Việt",
+            "english": "English"
+        },
+        "userMenu": {
+            "profile": "Profile",
+            "settings": "Settings",
+            "logout": "Logout"
+        }
+    }
+}

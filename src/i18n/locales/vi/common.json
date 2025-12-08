@@ -1,0 +1,49 @@
+{
+    "common": {
+      "save": "Lưu",
+      "cancel": "Hủy",
+      "delete": "Xóa",
+      "edit": "Chỉnh sửa",
+      "create": "Tạo mới",
+      "update": "Cập nhật",
+      "search": "Tìm kiếm",
+      "filter": "Lọc",
+      "refresh": "Làm mới",
+      "loading": "Đang tải...",
+      "noData": "Không có dữ liệu",
+      "confirm": "Xác nhận",
+      "back": "Quay lại",
+      "next": "Tiếp theo",
+      "submit": "Gửi",
+      "close": "Đóng",
+      "open": "Mở",
+      "view": "Xem",
+      "actions": "Thao tác",
+      "status": "Trạng thái",
+      "description": "Mô tả",
+      "name": "Tên",
+      "date": "Ngày",
+      "time": "Thời gian",
+      "total": "Tổng",
+      "details": "Chi tiết"
+    },
+    "messages": {
+      "success": {
+        "created": "Đã tạo {{entity}} thành công",
+        "updated": "Đã cập nhật {{entity}} thành công",
+        "deleted": "Đã xóa {{entity}} thành công",
+        "saved": "Đã lưu thay đổi thành công"
+      },
+      "error": {
+        "loadFailed": "Không thể tải {{entity}}",
+        "createFailed": "Không thể tạo {{entity}}",
+        "updateFailed": "Không thể cập nhật {{entity}}",
+        "deleteFailed": "Không thể xóa {{entity}}",
+        "generic": "Đã xảy ra lỗi"
+      },
+      "confirm": {
+        "delete": "Bạn có chắc chắn muốn xóa {{entity}} này?",
+        "remove": "Bạn có chắc chắn muốn xóa {{entity}} này?"
+      }
+    }
+}

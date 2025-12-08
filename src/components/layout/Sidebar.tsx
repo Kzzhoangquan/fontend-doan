@@ -263,7 +263,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
                 {!projectsLoading && recentProjects.length > 0 && (
                   <>
                     <div className="px-2 py-1 text-[10px] text-slate-400 uppercase font-semibold">
-                      Recent Projects
+                      Dự án gần đây
                     </div>
                     {item.children!.map(child => renderMenuItem(child, depth + 1, item.href))}
                   </>
