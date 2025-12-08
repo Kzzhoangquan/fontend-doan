@@ -145,82 +145,92 @@ export const BoardComponent: React.FC<BoardProps> = ({
 	const lastOperation = data?.lastOperation;
 
 	useEffect(() => {
-		if (!lastOperation || !data) {
-			return;
-		}
-		const { outcome, trigger } = lastOperation;
-
-		if (outcome.type === 'column-reorder') {
-			const { startIndex, finishIndex } = outcome;
-
-			const { columnMap, orderedColumnIds } = stableData.current!;
-			const sourceColumn = columnMap[orderedColumnIds[finishIndex]];
-
-			const entry = registry.getColumn(sourceColumn.columnId);
-			triggerPostMoveFlash(entry.element);
-
-			liveRegion.announce(
-				`You've moved ${sourceColumn.title} from position ${
-					startIndex + 1
-				} to position ${finishIndex + 1} of ${orderedColumnIds.length}.`,
-			);
-
+		if (!data || data.lastOperation === null) {
 			return;
 		}
 
-		if (outcome.type === 'card-reorder') {
-			const { columnId, startIndex, finishIndex } = outcome;
+		const { outcome } = data.lastOperation;
+		const { columnMap, orderedColumnIds } = data;
 
-			const { columnMap } = stableData.current!;
-			const column = columnMap[columnId];
-			const item = column.items[finishIndex];
+		const syncWithBackend = async () => {
+			try {
+				switch (outcome.type) {
+					case 'column-reorder': {
+						console.log('[API CALL] Reordering columns...');
+						await boardService.reorderColumns(
+							parseInt(workflowId), 
+							{
+								orderedColumnIds: orderedColumnIds.map(id => parseInt(id))
+							}, 
+							projectId
+						);
+						console.log('[API SUCCESS] Columns reordered');
+						break;
+					}
 
-			const entry = registry.getCard(item.issueId);
-			triggerPostMoveFlash(entry.element);
+					case 'card-reorder': {
+						const { columnId } = outcome;
+						const column = columnMap[columnId];
+						
+						const orderedIssueIds = column.items.map(item => item.id);
 
-			if (trigger !== 'keyboard') {
-				return;
+						console.log('[API CALL] Reordering cards in column:', columnId);
+						await boardService.reorderCards(
+							parseInt(columnId), 
+							{
+								orderedIssueIds
+							}, 
+							projectId
+						);
+						console.log('[API SUCCESS] Cards reordered');
+						break;
+					}
+
+					case 'card-move': {
+						const { finishColumnId, itemIndexInFinishColumn } = outcome;
+						const destinationColumn = columnMap[finishColumnId];
+						const movedCard = destinationColumn.items[itemIndexInFinishColumn];
+						
+						const movedCardId = movedCard.id;
+
+						console.log('[API CALL] Moving card:', movedCardId, 'to column:', finishColumnId);
+						await boardService.moveCard(
+							movedCardId, 
+							{
+								targetStatusId: parseInt(finishColumnId),
+								targetIndex: itemIndexInFinishColumn,
+							}, 
+							projectId
+						);
+						console.log('[API SUCCESS] Card moved');
+						message.success('Đã di chuyển thẻ thành công');
+						break;
+					}
+
+					default:
+						return;
+				}
+			} catch (error: any) {
+				console.error('[API CALL FAILED]', error);
+				console.error('Error details:', {
+					status: error.response?.status,
+					message: error.message,
+					data: error.response?.data,
+				});
+				
+				// ✅ Axios interceptor đã show notification rồi
+				// Nhưng cần rollback UI nếu API fail
+				
+				// Rollback UI by refetching data
+				console.log('[ROLLBACK] Refreshing board data...');
+				await fetchBoardData();
 			}
+		};
 
-			liveRegion.announce(
-				`You've moved ${item.name} from position ${
-					startIndex + 1
-				} to position ${finishIndex + 1} of ${column.items.length} in the ${column.title} column.`,
-			);
+		// Execute sync
+		syncWithBackend();
 
-			return;
-		}
-
-		if (outcome.type === 'card-move') {
-			const { finishColumnId, itemIndexInStartColumn, itemIndexInFinishColumn } = outcome;
-
-			const dataRef = stableData.current!;
-			const destinationColumn = dataRef.columnMap[finishColumnId];
-			const item = destinationColumn.items[itemIndexInFinishColumn];
-
-			const finishPosition =
-				typeof itemIndexInFinishColumn === 'number'
-					? itemIndexInFinishColumn + 1
-					: destinationColumn.items.length;
-
-			const entry = registry.getCard(item.issueId);
-			triggerPostMoveFlash(entry.element);
-
-			if (trigger !== 'keyboard') {
-				return;
-			}
-
-			liveRegion.announce(
-				`You've moved ${item.name} from position ${
-					itemIndexInStartColumn + 1
-				} to position ${finishPosition} in the ${destinationColumn.title} column.`,
-			);
-
-			entry.actionMenuTrigger.focus();
-
-			return;
-		}
-	}, [lastOperation, registry, data]);
+	}, [data, workflowId, projectId]);
 
 	useEffect(() => {
 		return liveRegion.cleanup();
