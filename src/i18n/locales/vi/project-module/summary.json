@@ -1,0 +1,59 @@
+{
+  "summary": {
+    "loading": "Đang tải thống kê...",
+    "noData": "Không có dữ liệu thống kê",
+    "kpi": {
+      "totalIssues": "Tổng Issues",
+      "resolutionRate": "Tỷ lệ giải quyết",
+      "avgVelocity": "Velocity trung bình",
+      "teamMembers": "Thành viên",
+      "resolved": "đã giải quyết",
+      "open": "đang mở",
+      "sprintsCompleted": "sprint đã hoàn thành",
+      "activeContributors": "thành viên hoạt động"
+    },
+    "charts": {
+      "issuesByStatus": "Issues theo Trạng thái",
+      "issuesByType": "Issues theo Loại",
+      "velocityTrend": "Xu hướng Velocity Sprint",
+      "topContributors": "Người đóng góp nhiều nhất",
+      "epicProgress": "Tiến độ Epic (Top 5)",
+      "sprintCompletion": "Tỷ lệ hoàn thành Sprint",
+      "storyPointsTracking": "Story Points & Theo dõi Thời gian",
+      "topContributorsDetails": "Chi tiết Người đóng góp",
+      "epicSummary": "Tổng quan Epic",
+      "sprintSummary": "Tổng quan Sprint"
+    },
+    "chartLabels": {
+      "completedSP": "SP Hoàn thành",
+      "committedSP": "SP Cam kết",
+      "assigned": "Được gán",
+      "completed": "Hoàn thành",
+      "progressPercent": "Tiến độ %",
+      "completionPercent": "Hoàn thành %"
+    },
+    "table": {
+      "contributor": "Người đóng góp",
+      "assigned": "Được gán",
+      "completed": "Hoàn thành",
+      "rate": "Tỷ lệ"
+    },
+    "storyPoints": {
+      "total": "Tổng Story Points",
+      "average": "Story Points TB",
+      "estimatedHours": "Giờ Ước tính",
+      "timeSpent": "Thời gian Đã dùng"
+    },
+    "epic": {
+      "total": "Tổng",
+      "completed": "Hoàn thành",
+      "inProgress": "Đang thực hiện"
+    },
+    "sprint": {
+      "active": "ĐANG HOẠT ĐỘNG",
+      "completed": "ĐÃ HOÀN THÀNH",
+      "planning": "ĐANG LÊN KẾ HOẠCH",
+      "closed": "ĐÃ ĐÓNG"
+    }
+  }
+}

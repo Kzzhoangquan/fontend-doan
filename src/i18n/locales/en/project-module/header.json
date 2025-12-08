@@ -1,0 +1,16 @@
+{
+    "projectHeader": {
+        "project": "Project",
+        "lead": "Lead",
+        "viewDetails": "View project details",
+        "tabs": {
+            "summary": "Summary",
+            "sprintBacklog": "Sprint Backlog",
+            "board": "Board",
+            "epics": "Epics",
+            "team": "Team",
+            "roles": "Roles",
+            "notifications": "Notifications"
+        }
+    }
+}

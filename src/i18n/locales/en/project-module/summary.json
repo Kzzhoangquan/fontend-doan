@@ -1,0 +1,59 @@
+{
+  "summary": {
+    "loading": "Loading statistics...",
+    "noData": "No statistics available",
+    "kpi": {
+      "totalIssues": "Total Issues",
+      "resolutionRate": "Resolution Rate",
+      "avgVelocity": "Avg Velocity",
+      "teamMembers": "Team Members",
+      "resolved": "resolved",
+      "open": "open",
+      "sprintsCompleted": "sprints completed",
+      "activeContributors": "active contributors"
+    },
+    "charts": {
+      "issuesByStatus": "Issues by Status",
+      "issuesByType": "Issues by Type",
+      "velocityTrend": "Sprint Velocity Trend",
+      "topContributors": "Top Contributors",
+      "epicProgress": "Epic Progress (Top 5)",
+      "sprintCompletion": "Sprint Completion Rate",
+      "storyPointsTracking": "Story Points & Time Tracking",
+      "topContributorsDetails": "Top Contributors Details",
+      "epicSummary": "Epic Summary",
+      "sprintSummary": "Sprint Summary"
+    },
+    "chartLabels": {
+      "completedSP": "Completed SP",
+      "committedSP": "Committed SP",
+      "assigned": "Assigned",
+      "completed": "Completed",
+      "progressPercent": "Progress %",
+      "completionPercent": "Completion %"
+    },
+    "table": {
+      "contributor": "Contributor",
+      "assigned": "Assigned",
+      "completed": "Completed",
+      "rate": "Rate"
+    },
+    "storyPoints": {
+      "total": "Total Story Points",
+      "average": "Avg Story Points",
+      "estimatedHours": "Estimated Hours",
+      "timeSpent": "Time Spent"
+    },
+    "epic": {
+      "total": "Total",
+      "completed": "Completed",
+      "inProgress": "In Progress"
+    },
+    "sprint": {
+      "active": "ACTIVE",
+      "completed": "COMPLETED",
+      "planning": "PLANNING",
+      "closed": "CLOSED"
+    }
+  }
+}

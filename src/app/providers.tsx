@@ -4,6 +4,7 @@ import { Provider } from 'react-redux';
 import { store } from '@/store';
 import { restoreAuth } from '@/store/slices/authSlice';
 import { useEffect, useState } from 'react';
+import { I18nProvider } from '@/i18n/I18nProvider';
 
 function AuthRestorer({ children }: { children: React.ReactNode }) {
   const [isRestored, setIsRestored] = useState(false);
@@ -29,7 +30,9 @@ function AuthRestorer({ children }: { children: React.ReactNode }) {
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <Provider store={store}>
-      <AuthRestorer>{children}</AuthRestorer>
+      <I18nProvider>  {/* 👈 THÊM DÒNG NÀY */}
+        <AuthRestorer>{children}</AuthRestorer>
+      </I18nProvider>  {/* 👈 THÊM DÒNG NÀY */}
     </Provider>
   );
-} 
+}
