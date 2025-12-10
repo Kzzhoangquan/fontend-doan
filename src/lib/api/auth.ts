@@ -1,6 +1,9 @@
 // src/lib/api/auth.ts
 import api from './axios';
+import axios from 'axios';
 import { storage } from './storage';
+
+const API_BASE = '/api';
 
 export const login = async (username: string, password: string) => {
   try {
@@ -39,6 +42,52 @@ export const getCurrentUser = () => {
 
 export const getTokens = () => {
   return storage.getTokens();
+};
+
+/**
+ * Refresh access token using refresh token
+ */
+export const refreshToken = async () => {
+  try {
+    const tokens = storage.getTokens();
+    if (!tokens?.refreshToken) {
+      throw new Error('No refresh token');
+    }
+
+    // Call refresh API with refresh token in Authorization header
+    // Use axios directly to avoid interceptor adding old access token
+    const res = await axios.post(
+      `${API_BASE}/auth/refresh`,
+      {},
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokens.refreshToken}`,
+        },
+      }
+    );
+
+    const { access_token, refresh_token } = res.data;
+    const newTokens = {
+      accessToken: access_token,
+      refreshToken: refresh_token,
+    };
+    
+    storage.setTokens(newTokens);
+    
+    // Get user profile and update storage
+    try {
+      const profileRes = await api.get('/auth/profile');
+      storage.setUser(profileRes.data);
+    } catch (profileError) {
+      console.warn('Failed to get profile after refresh:', profileError);
+    }
+
+    return newTokens;
+  } catch (error: any) {
+    storage.removeTokens();
+    throw error;
+  }
 };
 
 export const verifyEmail = async (token: string) => {

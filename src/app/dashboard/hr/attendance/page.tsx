@@ -1,14 +1,13 @@
 // src/app/dashboard/hr/attendance/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { notification } from 'antd';
 import { Calendar, Search, Plus, Edit, Trash2, Eye, Loader2, Clock, User, BarChart3, TrendingUp, X, CheckCircle, Camera, MapPin, Smartphone, Shield } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { attendanceService, Attendance, CreateAttendanceDto, UpdateAttendanceDto } from '@/lib/api/services/attendance.service';
 import { employeeService, Employee } from '@/lib/api/services/employee.service';
-import { AttendanceActionType, attendanceVerificationService, TodayStatus, AttendanceResult } from '@/lib/api/services/attendance-verification.service';
-import AttendanceVerificationModal from '@/components/attendance/AttendanceVerificationModal';
+import { attendanceVerificationService, TodayStatus } from '@/lib/api/services/attendance-verification.service';
 import AttendanceCalendar from '@/components/attendance/AttendanceCalendar';
 import { useAuth } from '@/hooks/useAuth';
 import { UserRole } from '@/lib/constants/roles';
@@ -33,6 +32,34 @@ export default function AttendancePage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(false);
   const [filterEmployeeId, setFilterEmployeeId] = useState<number | undefined>(undefined);
+  const [filterStatus, setFilterStatus] = useState<string>(''); // 'late', 'valid', 'missing', ''
+  
+  // Helper to get current month date range
+  const getCurrentMonthRange = () => {
+    if (typeof window === 'undefined') {
+      return { start: '', end: '' };
+    }
+    const now = new Date();
+    // Mùng 1 tháng hiện tại
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    // Cuối tháng hiện tại (ngày cuối cùng)
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    // Format date as YYYY-MM-DD using local timezone (not UTC)
+    const formatDateLocal = (date: Date): string => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    return {
+      start: formatDateLocal(firstDay),
+      end: formatDateLocal(lastDay),
+    };
+  };
+  
+  // Initialize with current month range (will be set properly in useEffect for SSR safety)
   const [filterStartDate, setFilterStartDate] = useState<string>('');
   const [filterEndDate, setFilterEndDate] = useState<string>('');
   const [formData, setFormData] = useState<CreateAttendanceDto>({
@@ -47,9 +74,7 @@ export default function AttendancePage() {
   const [allAttendances, setAllAttendances] = useState<Attendance[]>([]);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  // Verification modal state
-  const [verificationModalOpen, setVerificationModalOpen] = useState(false);
-  const [verificationAction, setVerificationAction] = useState<AttendanceActionType>(AttendanceActionType.CHECK_IN);
+  // Today status state (removed verification modal state)
   const [todayStatus, setTodayStatus] = useState<TodayStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [currentDateFormatted, setCurrentDateFormatted] = useState<string>('');
@@ -107,12 +132,12 @@ export default function AttendancePage() {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [page, search, filterEmployeeId, filterStartDate, filterEndDate]);
+  }, [page, search, filterEmployeeId, filterStartDate, filterEndDate, filterStatus]);
 
-  // Fetch all attendances for statistics
+  // Fetch all attendances for statistics - update when filters change
   useEffect(() => {
     fetchAllAttendancesForStats();
-  }, []);
+  }, [filterStartDate, filterEndDate, filterEmployeeId, isEmployee, user?.id]);
 
   // Fetch today status on mount
   useEffect(() => {
@@ -125,9 +150,13 @@ export default function AttendancePage() {
     setStatsLoading(true);
     try {
       const params: any = { pageSize: 1000 };
-      if (isEmployee && user?.id) {
+      // Use filterEmployeeId if set, otherwise use user.id for employees
+      if (filterEmployeeId) {
+        params.employeeId = filterEmployeeId;
+      } else if (isEmployee && user?.id) {
         params.employeeId = user.id;
       }
+      // Always use filter dates (defaults to current month start/end)
       if (filterStartDate) {
         params.startDate = filterStartDate;
       }
@@ -161,6 +190,24 @@ export default function AttendancePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Track if default dates have been initialized
+  const datesInitialized = useRef(false);
+
+  // Set default date range to current month on client-side mount
+  // From: mùng 1 tháng hiện tại, To: cuối tháng hiện tại
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const range = getCurrentMonthRange();
+      // Set default values on first mount only
+      if (!datesInitialized.current && range.start && range.end) {
+        setFilterStartDate(range.start);
+        setFilterEndDate(range.end);
+        datesInitialized.current = true;
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const fetchAttendances = async () => {
     setLoading(true);
     setError('');
@@ -182,9 +229,28 @@ export default function AttendancePage() {
       }
 
       const data = await attendanceService.getAll(params);
-      setAttendances(data.data);
-      setTotal(data.total);
-      setTotalPages(data.totalPages);
+      
+      // Filter by status on frontend
+      let filteredData = data.data;
+      if (filterStatus) {
+        filteredData = data.data.filter((att: Attendance) => {
+          if (filterStatus === 'late') {
+            // Đi muộn: có late_minutes > 0
+            return att.late_minutes && att.late_minutes > 0;
+          } else if (filterStatus === 'valid') {
+            // Hợp lệ: có check_in, check_out và is_verified
+            return att.check_in && att.check_out && (att as any).is_verified;
+          } else if (filterStatus === 'missing') {
+            // Không chấm công: thiếu check_in hoặc check_out
+            return !att.check_in || !att.check_out;
+          }
+          return true;
+        });
+      }
+      
+      setAttendances(filteredData);
+      setTotal(filteredData.length);
+      setTotalPages(Math.ceil(filteredData.length / pageSize));
     } catch (err: any) {
       console.error('Error fetching attendances:', err);
       setError(err.response?.data?.message || 'Không thể tải danh sách chấm công');
@@ -328,37 +394,33 @@ export default function AttendancePage() {
     }
   };
 
-  // New secure check-in handler
-  const handleSecureCheckIn = () => {
-    setVerificationAction(AttendanceActionType.CHECK_IN);
-    setVerificationModalOpen(true);
-  };
 
-  // New secure check-out handler
-  const handleSecureCheckOut = () => {
-    setVerificationAction(AttendanceActionType.CHECK_OUT);
-    setVerificationModalOpen(true);
-  };
-
-  // Handle verification success
-  const handleVerificationSuccess = (result: AttendanceResult) => {
-    showNotification(
-      result.is_verified ? 'success' : 'warning',
-      result.action_type === AttendanceActionType.CHECK_IN ? 'Check-in thành công!' : 'Check-out thành công!',
-      result.is_verified 
-        ? 'Đã xác thực thành công'
-        : result.verification_notes
-    );
-    fetchAttendances();
-    fetchTodayStatus();
-  };
-
-  const formatTime = (dateString: string | null) => {
-    if (!dateString || !isClient) return 'N/A';
+  const formatTime = (dateString: string | null | undefined) => {
+    if (!dateString) return '--:--';
+    
+    // If not client-side yet, still try to format (will work on client after hydration)
     try {
-      return new Date(dateString).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    } catch {
-      return 'N/A';
+      // Handle both ISO string and other date formats
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return '--:--';
+      }
+      
+      // Use toLocaleTimeString if available (client-side), otherwise format manually
+      if (typeof window !== 'undefined' && isClient) {
+        return date.toLocaleTimeString('vi-VN', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: false 
+        });
+      } else {
+        // Fallback formatting for SSR or before client hydration
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        return `${hours}:${minutes}`;
+      }
+    } catch (error) {
+      return '--:--';
     }
   };
 
@@ -379,17 +441,21 @@ export default function AttendancePage() {
     return `${diff.toFixed(2)} giờ`;
   };
 
-  // Calculate attendance statistics
+  // Calculate attendance statistics based on filtered data
   const calculateAttendanceStats = () => {
-    const dailyStats: Record<string, { total: number; late: number; hours: number }> = {};
+    const dailyStats: Record<string, { total: number; late: number; hours: number; early: number; verified: number }> = {};
     let totalHours = 0;
     let totalLate = 0;
+    let totalEarly = 0;
     let totalRecords = 0;
+    let totalVerified = 0;
+    let totalUnverified = 0;
 
-    allAttendances.forEach(att => {
+    // Use filtered attendances instead of allAttendances
+    attendances.forEach(att => {
       const date = att.date;
       if (!dailyStats[date]) {
-        dailyStats[date] = { total: 0, late: 0, hours: 0 };
+        dailyStats[date] = { total: 0, late: 0, hours: 0, early: 0, verified: 0 };
       }
       dailyStats[date].total++;
       totalRecords++;
@@ -399,10 +465,23 @@ export default function AttendancePage() {
         totalLate++;
       }
       
+      if (att.early_leave_minutes && att.early_leave_minutes > 0) {
+        dailyStats[date].early++;
+        totalEarly++;
+      }
+      
       if (att.work_hours) {
         const hours = Number(att.work_hours);
         dailyStats[date].hours += hours;
         totalHours += hours;
+      }
+
+      // Check verification status
+      if ((att as any).is_verified) {
+        dailyStats[date].verified++;
+        totalVerified++;
+      } else {
+        totalUnverified++;
       }
     });
 
@@ -420,9 +499,14 @@ export default function AttendancePage() {
       dailyData,
       totalHours: Number(totalHours.toFixed(2)),
       totalLate,
+      totalEarly,
       totalRecords,
+      totalVerified,
+      totalUnverified,
       averageHours: totalRecords > 0 ? Number((totalHours / totalRecords).toFixed(2)) : 0,
       lateRate: totalRecords > 0 ? Number(((totalLate / totalRecords) * 100).toFixed(1)) : 0,
+      earlyRate: totalRecords > 0 ? Number(((totalEarly / totalRecords) * 100).toFixed(1)) : 0,
+      verifiedRate: totalRecords > 0 ? Number(((totalVerified / totalRecords) * 100).toFixed(1)) : 0,
     };
   };
 
@@ -432,14 +516,6 @@ export default function AttendancePage() {
     <div className="space-y-6">
       {contextHolder}
       
-      {/* Verification Modal */}
-      <AttendanceVerificationModal
-        isOpen={verificationModalOpen}
-        actionType={verificationAction}
-        onClose={() => setVerificationModalOpen(false)}
-        onSuccess={handleVerificationSuccess}
-      />
-
       {/* Today's Status Card for Employees */}
       {isEmployee && (
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg p-6 text-white">
@@ -506,35 +582,7 @@ export default function AttendancePage() {
             </div>
           ) : null}
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleSecureCheckIn}
-              disabled={formSubmitting || todayStatus?.has_checked_in}
-              className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-medium transition-all ${
-                todayStatus?.has_checked_in
-                  ? 'bg-white/10 text-white/50 cursor-not-allowed'
-                  : 'bg-green-500 hover:bg-green-600 text-white shadow-lg hover:shadow-xl'
-              }`}
-            >
-              <Camera className="w-5 h-5" />
-              <span>Check-in có xác thực</span>
-            </button>
-            <button
-              onClick={handleSecureCheckOut}
-              disabled={formSubmitting || !todayStatus?.has_checked_in || todayStatus?.has_checked_out}
-              className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-medium transition-all ${
-                !todayStatus?.has_checked_in || todayStatus?.has_checked_out
-                  ? 'bg-white/10 text-white/50 cursor-not-allowed'
-                  : 'bg-red-500 hover:bg-red-600 text-white shadow-lg hover:shadow-xl'
-              }`}
-            >
-              <Camera className="w-5 h-5" />
-              <span>Check-out có xác thực</span>
-            </button>
-          </div>
-
-          {/* Verification Features */}
+          {/* Verification Features (Display only - no actions) */}
           <div className="mt-4 flex items-center justify-center gap-6 text-sm text-white/70">
             <div className="flex items-center gap-2">
               <Camera className="w-4 h-4" />
@@ -626,6 +674,77 @@ export default function AttendancePage() {
         </div>
       )}
 
+      {/* Summary Section - Show when in table view */}
+      {viewMode === 'table' && !statsLoading && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-sm p-6 mb-6 border border-blue-100">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 className="w-6 h-6 text-blue-600" />
+            <h2 className="text-xl font-bold text-gray-900">Tổng hợp chấm công</h2>
+            {filterStartDate && filterEndDate && (
+              <span className="text-sm text-gray-600 ml-auto">
+                {isClient && new Date(filterStartDate).toLocaleDateString('vi-VN')} - {isClient && new Date(filterEndDate).toLocaleDateString('vi-VN')}
+              </span>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="bg-white rounded-lg p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <CheckCircle className="w-4 h-4 text-green-600" />
+                <span className="text-xs font-medium text-gray-600">Tổng số ca</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{attendanceStats.totalRecords}</p>
+              <p className="text-xs text-gray-500 mt-1">Bản ghi</p>
+            </div>
+            
+            <div className="bg-white rounded-lg p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <Clock className="w-4 h-4 text-blue-600" />
+                <span className="text-xs font-medium text-gray-600">Tổng giờ làm</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{attendanceStats.totalHours}h</p>
+              <p className="text-xs text-gray-500 mt-1">TB: {attendanceStats.averageHours}h/ca</p>
+            </div>
+            
+            <div className="bg-white rounded-lg p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <X className="w-4 h-4 text-red-600" />
+                <span className="text-xs font-medium text-gray-600">Đi muộn</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{attendanceStats.totalLate}</p>
+              <p className="text-xs text-gray-500 mt-1">{attendanceStats.lateRate}%</p>
+            </div>
+            
+            <div className="bg-white rounded-lg p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <X className="w-4 h-4 text-orange-600" />
+                <span className="text-xs font-medium text-gray-600">Về sớm</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{attendanceStats.totalEarly || 0}</p>
+              <p className="text-xs text-gray-500 mt-1">{attendanceStats.earlyRate || 0}%</p>
+            </div>
+            
+            <div className="bg-white rounded-lg p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <Shield className="w-4 h-4 text-green-600" />
+                <span className="text-xs font-medium text-gray-600">Đã xác thực</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{attendanceStats.totalVerified || 0}</p>
+              <p className="text-xs text-gray-500 mt-1">{attendanceStats.verifiedRate || 0}%</p>
+            </div>
+            
+            <div className="bg-white rounded-lg p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingUp className="w-4 h-4 text-purple-600" />
+                <span className="text-xs font-medium text-gray-600">Hiệu suất</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{100 - attendanceStats.lateRate}%</p>
+              <p className="text-xs text-gray-500 mt-1">Đúng giờ</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white rounded-xl shadow-sm p-6">
         <div className="flex items-center justify-between mb-6">
@@ -674,57 +793,72 @@ export default function AttendancePage() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {canManage && (
+        {/* Filters - Only show in table view */}
+        {viewMode === 'table' && (
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {canManage && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nhân viên</label>
+                <select
+                  value={filterEmployeeId || ''}
+                  onChange={(e) => setFilterEmployeeId(e.target.value ? Number(e.target.value) : undefined)}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                >
+                  <option value="">Tất cả</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.full_name} ({emp.employee_code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Nhân viên</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Từ ngày</label>
+              <input
+                type="date"
+                value={filterStartDate}
+                onChange={(e) => setFilterStartDate(e.target.value)}
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Đến ngày</label>
+              <input
+                type="date"
+                value={filterEndDate}
+                onChange={(e) => setFilterEndDate(e.target.value)}
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Trạng thái</label>
               <select
-                value={filterEmployeeId || ''}
-                onChange={(e) => setFilterEmployeeId(e.target.value ? Number(e.target.value) : undefined)}
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
               >
                 <option value="">Tất cả</option>
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.full_name} ({emp.employee_code})
-                  </option>
-                ))}
+                <option value="valid">Hợp lệ</option>
+                <option value="late">Đi muộn</option>
+                <option value="missing">Không chấm công</option>
               </select>
             </div>
-          )}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Từ ngày</label>
-            <input
-              type="date"
-              value={filterStartDate}
-              onChange={(e) => setFilterStartDate(e.target.value)}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Đến ngày</label>
-            <input
-              type="date"
-              value={filterEndDate}
-              onChange={(e) => setFilterEndDate(e.target.value)}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Tìm kiếm</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Tìm kiếm..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Tìm kiếm</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                />
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Error Message */}

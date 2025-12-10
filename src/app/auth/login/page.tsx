@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch } from '@/store/hooks';
 import { setCredentials } from '@/store/slices/authSlice';
-import { login } from '@/lib/api/auth';
+import { login, getTokens, refreshToken } from '@/lib/api/auth';
+import { storage } from '@/lib/api/storage';
+import { isTokenValid, isTokenExpired } from '@/lib/utils/jwt';
 import { Building2 } from 'lucide-react';
 
 export default function LoginPage() {
@@ -14,6 +16,62 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // Check authentication status on mount
+  useEffect(() => {
+    const checkAuthAndRedirect = async () => {
+      try {
+        const tokens = getTokens();
+        
+        if (!tokens) {
+          setCheckingAuth(false);
+          return;
+        }
+
+        const { accessToken, refreshToken: refresh } = tokens;
+
+        // Check if access token is still valid
+        if (isTokenValid(accessToken)) {
+          // Access token is valid, redirect to dashboard
+          const user = storage.getUser();
+          if (user) {
+            dispatch(setCredentials({ user }));
+          }
+          router.push('/dashboard');
+          return;
+        }
+
+        // Access token expired, check refresh token
+        if (refresh && isTokenValid(refresh)) {
+          // Refresh token is valid, try to refresh access token
+          try {
+            await refreshToken();
+            const updatedUser = storage.getUser();
+            if (updatedUser) {
+              dispatch(setCredentials({ user: updatedUser }));
+            }
+            router.push('/dashboard');
+            return;
+          } catch (refreshError) {
+            console.error('Failed to refresh token:', refreshError);
+            // Refresh failed, clear tokens and show login form
+            storage.removeTokens();
+          }
+        } else {
+          // Both tokens expired, clear and show login form
+          storage.removeTokens();
+        }
+      } catch (error) {
+        console.error('Error checking auth:', error);
+        storage.removeTokens();
+      } finally {
+        setCheckingAuth(false);
+      }
+    };
+
+    checkAuthAndRedirect();
+  }, [router, dispatch]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,6 +98,22 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  // Show loading while checking auth
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl mb-4">
+              <Building2 className="w-8 h-8 text-white" />
+            </div>
+            <p className="text-gray-600">Đang kiểm tra phiên đăng nhập...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
