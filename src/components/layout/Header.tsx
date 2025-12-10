@@ -28,6 +28,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const [searchResults, setSearchResults] = useState<MenuItem[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   // ✅ SỬ DỤNG useMemo ĐỂ CACHE allMenuItems
@@ -279,11 +280,24 @@ export default function Header({ onMenuClick }: HeaderProps) {
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center gap-3 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <img
-                src={user?.avatar || `https://api.dicebear.com/7.x/miniavs/svg?seed=${user?.username}`}
-                alt={user?.full_name}
-                className="w-8 h-8 rounded-full border-2 border-gray-200"
-              />
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowAvatarModal(true);
+                }}
+                className="relative cursor-pointer"
+              >
+                <img
+                  key={user?.avatar_url || user?.id}
+                  src={user?.avatar_url || `https://api.dicebear.com/7.x/miniavs/svg?seed=${user?.username}`}
+                  alt={user?.full_name}
+                  className="w-8 h-8 rounded-full border-2 border-gray-200 object-cover hover:ring-2 hover:ring-blue-500 transition-all"
+                  onError={(e) => {
+                    // Fallback to default avatar if image fails to load
+                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/miniavs/svg?seed=${user?.username}`;
+                  }}
+                />
+              </div>
               <div className="hidden md:block text-left">
                 <p className="text-sm font-medium text-gray-900">{user?.full_name || user?.username}</p>
                 <p className="text-xs text-gray-500">{user?.roles?.[0]?.name || 'Nhân viên'}</p>
@@ -335,6 +349,63 @@ export default function Header({ onMenuClick }: HeaderProps) {
           </div>
         </div>
       </div>
+
+      {/* Avatar Modal */}
+      {showAvatarModal && (
+        <>
+          <div
+            className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowAvatarModal(false)}
+          >
+            <div
+              className="relative max-w-2xl max-h-[90vh] bg-white rounded-xl overflow-hidden shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Ảnh đại diện - {user?.full_name || user?.username}
+                </h3>
+                <button
+                  onClick={() => setShowAvatarModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <svg
+                    className="w-5 h-5 text-gray-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <div className="p-6 flex items-center justify-center bg-gray-50">
+                <img
+                  src={user?.avatar_url || `https://api.dicebear.com/7.x/miniavs/svg?seed=${user?.username}`}
+                  alt={user?.full_name}
+                  className="max-w-full max-h-[70vh] rounded-lg shadow-lg object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/miniavs/svg?seed=${user?.username}`;
+                  }}
+                />
+              </div>
+              <div className="p-4 border-t border-gray-200 text-center">
+                <button
+                  onClick={() => router.push('/dashboard/settings/profile')}
+                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                >
+                  Cập nhật ảnh đại diện
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </header>
   );
 }

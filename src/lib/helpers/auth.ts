@@ -15,6 +15,7 @@ export interface User {
     description: string;
   }>;
   avatar?: string;
+  avatar_url?: string;
 }
 
 /**

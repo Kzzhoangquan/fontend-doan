@@ -80,6 +80,7 @@ export default function AttendanceCalendar({ employeeId, onDateClick }: Attendan
       date.setDate(startDate.getDate() + i);
       
       const dateStr = date.toISOString().split('T')[0];
+      // Find attendance by date field (date always has data)
       const attendance = attendances.find(att => att.date === dateStr) || null;
       
       let status: DayData['status'] = 'none';
