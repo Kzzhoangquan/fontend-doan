@@ -397,7 +397,7 @@ export default function AttendancePage() {
 
   const formatTime = (dateString: string | null | undefined) => {
     if (!dateString) return '--:--';
-    
+
     // If not client-side yet, still try to format (will work on client after hydration)
     try {
       // Handle both ISO string and other date formats
@@ -515,7 +515,7 @@ export default function AttendancePage() {
   return (
     <div className="space-y-6">
       {contextHolder}
-      
+
       {/* Today's Status Card for Employees */}
       {isEmployee && (
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg p-6 text-white">
@@ -796,41 +796,41 @@ export default function AttendancePage() {
         {/* Filters - Only show in table view */}
         {viewMode === 'table' && (
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            {canManage && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Nhân viên</label>
-                <select
-                  value={filterEmployeeId || ''}
-                  onChange={(e) => setFilterEmployeeId(e.target.value ? Number(e.target.value) : undefined)}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Tất cả</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.full_name} ({emp.employee_code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+          {canManage && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Từ ngày</label>
-              <input
-                type="date"
-                value={filterStartDate}
-                onChange={(e) => setFilterStartDate(e.target.value)}
+              <label className="block text-sm font-medium text-gray-700 mb-2">Nhân viên</label>
+              <select
+                value={filterEmployeeId || ''}
+                onChange={(e) => setFilterEmployeeId(e.target.value ? Number(e.target.value) : undefined)}
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              />
+              >
+                <option value="">Tất cả</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.full_name} ({emp.employee_code})
+                  </option>
+                ))}
+              </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Đến ngày</label>
-              <input
-                type="date"
-                value={filterEndDate}
-                onChange={(e) => setFilterEndDate(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              />
-            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Từ ngày</label>
+            <input
+              type="date"
+              value={filterStartDate}
+              onChange={(e) => setFilterStartDate(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Đến ngày</label>
+            <input
+              type="date"
+              value={filterEndDate}
+              onChange={(e) => setFilterEndDate(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            />
+          </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Trạng thái</label>
               <select
@@ -844,20 +844,20 @@ export default function AttendancePage() {
                 <option value="missing">Không chấm công</option>
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Tìm kiếm</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
-              </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tìm kiếm</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              />
             </div>
           </div>
+        </div>
         )}
       </div>
 

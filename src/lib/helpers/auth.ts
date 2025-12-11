@@ -15,7 +15,8 @@ export interface User {
     description: string;
   }>;
   avatar?: string;
-  avatar_url?: string;
+  avatar_url?: string | null;
+  two_factor_enabled?: boolean;
 }
 
 /**

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { notification } from 'antd';
-import { User, Save, Loader2, Mail, Phone, Calendar, MapPin, UserCircle, Lock, Upload, Camera, X } from 'lucide-react';
+import { User, Save, Loader2, Mail, Phone, Calendar, MapPin, UserCircle, Lock, Upload, Camera, X, Settings, Shield } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppDispatch } from '@/store/hooks';
 import { updateUser as updateUserAction } from '@/store/slices/authSlice';
@@ -40,6 +40,8 @@ export default function ProfilePage() {
   const [otpSent, setOtpSent] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [updating2FA, setUpdating2FA] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Check if user is admin
@@ -68,6 +70,7 @@ export default function ProfilePage() {
 
       if (profileData) {
         setUser(profileData);
+        setTwoFactorEnabled(profileData.two_factor_enabled || false);
         setFormData({
           full_name: profileData.full_name || '',
           first_name: profileData.first_name || '',
@@ -242,6 +245,46 @@ export default function ProfilePage() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleToggle2FA = async () => {
+    if (!user?.id) {
+      notificationApi.error({
+        message: 'Lỗi',
+        description: 'Không tìm thấy thông tin người dùng',
+      });
+      return;
+    }
+
+    try {
+      setUpdating2FA(true);
+      const newValue = !twoFactorEnabled;
+      
+      await api.patch(`/employees/${user.id}/two-factor`, {
+        two_factor_enabled: newValue,
+      });
+
+      setTwoFactorEnabled(newValue);
+      setUser({ ...user, two_factor_enabled: newValue });
+      
+      // Update Redux store
+      dispatch(updateUserAction({ user: { two_factor_enabled: newValue } }));
+
+      notificationApi.success({
+        message: 'Thành công',
+        description: newValue 
+          ? 'Đã bật xác thực 2 yếu tố. Bạn sẽ cần nhập mã OTP khi đăng nhập.'
+          : 'Đã tắt xác thực 2 yếu tố.',
+      });
+    } catch (err: any) {
+      console.error('Error updating 2FA:', err);
+      notificationApi.error({
+        message: 'Lỗi',
+        description: err.response?.data?.message || err.message || 'Không thể cập nhật cài đặt xác thực 2 yếu tố',
+      });
+    } finally {
+      setUpdating2FA(false);
     }
   };
 
@@ -560,6 +603,76 @@ export default function ProfilePage() {
                   </>
                 )}
               </button>
+            </div>
+          </div>
+
+          {/* Settings */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Settings className="w-5 h-5" />
+              Cài đặt
+            </h3>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Shield className="w-5 h-5 text-blue-600" />
+                    <h4 className="font-medium text-gray-900">Xác thực 2 yếu tố (2FA)</h4>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Khi bật, bạn sẽ cần nhập mã OTP được gửi đến email mỗi khi đăng nhập để tăng cường bảo mật.
+                  </p>
+                </div>
+                <button
+                  onClick={handleToggle2FA}
+                  disabled={updating2FA}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                    twoFactorEnabled ? 'bg-blue-600' : 'bg-gray-300'
+                  } ${updating2FA ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      twoFactorEnabled ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Settings */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Settings className="w-5 h-5" />
+              Cài đặt
+            </h3>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Shield className="w-5 h-5 text-blue-600" />
+                    <h4 className="font-medium text-gray-900">Xác thực 2 yếu tố (2FA)</h4>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Khi bật, bạn sẽ cần nhập mã OTP được gửi đến email mỗi khi đăng nhập để tăng cường bảo mật.
+                  </p>
+                </div>
+                <button
+                  onClick={handleToggle2FA}
+                  disabled={updating2FA}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                    twoFactorEnabled ? 'bg-blue-600' : 'bg-gray-300'
+                  } ${updating2FA ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      twoFactorEnabled ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
           </div>
 

@@ -17,7 +17,8 @@ import {
   X,
   Shield,
   BarChart3,
-  PieChart
+  PieChart,
+  Unlock
 } from 'lucide-react';
 import { PieChart as RechartsPieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { employeeService, Employee } from '@/lib/api/services/employee.service';
@@ -156,6 +157,20 @@ export default function EmployeesPage() {
       description,
       placement: 'topRight',
     });
+  };
+
+  const handleUnlock = async (id: number, name: string) => {
+    if (!confirm(`Bạn có chắc chắn muốn mở khóa tài khoản của ${name}?`)) {
+      return;
+    }
+
+    try {
+      await employeeService.unlockAccount(id);
+      showNotification('success', `Đã mở khóa tài khoản của ${name}`);
+      fetchEmployees();
+    } catch (err: any) {
+      showNotification('error', 'Không thể mở khóa tài khoản', err.response?.data?.message || err.message);
+    }
   };
 
   const handleDelete = async (id: number, name: string) => {
@@ -672,6 +687,15 @@ export default function EmployeesPage() {
                                 title="Gán quyền"
                               >
                                 <Shield className="w-4 h-4" />
+                              </button>
+                            )}
+                            {(emp.status === 'SUSPENDED' || (emp as any).failed_login_count >= 10) && (
+                              <button
+                                onClick={() => handleUnlock(emp.id, emp.full_name)}
+                                className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                title="Mở khóa tài khoản"
+                              >
+                                <Unlock className="w-4 h-4" />
                               </button>
                             )}
                             <button

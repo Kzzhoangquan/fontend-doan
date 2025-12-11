@@ -26,6 +26,7 @@ export interface Employee {
   roles: Role[];
   password?: string;
   is_verified?: boolean;
+  two_factor_enabled?: boolean;
   // Salary settings
   base_salary?: number;
   allowance?: number;
@@ -91,6 +92,14 @@ export const employeeService = {
    */
   update: async (id: number, data: Partial<Employee>): Promise<Employee> => {
     const response = await api.patch<Employee>(`/employees/${id}`, sanitizePayload(data));
+    return response.data;
+  },
+
+  /**
+   * Unlock employee account (reset failed login attempts)
+   */
+  unlockAccount: async (id: number): Promise<Employee> => {
+    const response = await api.post<Employee>(`/employees/${id}/unlock`);
     return response.data;
   },
 
