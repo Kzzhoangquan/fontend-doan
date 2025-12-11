@@ -1,3 +1,4 @@
+'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import invariant from 'tiny-invariant';
@@ -12,6 +13,7 @@ import { reorder } from '@atlaskit/pragmatic-drag-and-drop/reorder';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button, message, Space } from 'antd';
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 
 import { type ColumnMap, type ColumnType, type Issue } from '@/components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/data/people';
 import Board from '@/components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/board';
@@ -64,13 +66,13 @@ export const BoardComponent: React.FC<BoardProps> = ({
     projectId,
     boardId,
 }) =>  {
+	const { t } = useTranslation();
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
 	const [data, setData] = useState<BoardState | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
-	// Filter state
 	const [filters, setFilters] = useState<BoardFilterValues>({
 		search: '',
 		assigneeIds: [],
@@ -82,7 +84,6 @@ export const BoardComponent: React.FC<BoardProps> = ({
 	const pathSegments = pathname.split('/');
 	const workflowId = pathSegments[pathSegments.length - 1];
 
-	// Fetch data từ API
 	const fetchBoardData = async () => {
 		try {
 			setLoading(true);
@@ -101,38 +102,30 @@ export const BoardComponent: React.FC<BoardProps> = ({
 			setError(null);
 		} catch (err) {
 			console.error('Error fetching board data:', err);
-			setError(err instanceof Error ? err.message : 'Failed to fetch data');
+			setError(err instanceof Error ? err.message : t('issue.messages.loadFailed'));
 		} finally {
 			setLoading(false);
 		}
 	};
 
-	// Fetch data khi component mount
 	useEffect(() => {
 		fetchBoardData();
 	}, [workflowId]);
 
-	// Handle create issue success
 	const handleCreateIssue = (newIssue: any) => {
 		console.log('New issue created:', newIssue);
-		// Refresh board data
 		fetchBoardData();
 	};
 
-	// Handle refresh
 	const handleRefresh = () => {
 		fetchBoardData();
 	};
 
-	// Handle filter change
 	const handleFilterChange = (newFilters: BoardFilterValues) => {
 		setFilters(newFilters);
 	};
 
-	// Apply filters to data
 	const { filteredData, totalIssues, filteredCount } = useFilteredBoardData(data, filters);
-
-	// Use filtered data for display, original data for drag operations
 	const displayData = filteredData;
 
 	const stableData = useRef(data);
@@ -203,7 +196,7 @@ export const BoardComponent: React.FC<BoardProps> = ({
 							projectId
 						);
 						console.log('[API SUCCESS] Card moved');
-						message.success('Đã di chuyển thẻ thành công');
+						message.success(t('issue.messages.moveSuccess'));
 						break;
 					}
 
@@ -218,19 +211,14 @@ export const BoardComponent: React.FC<BoardProps> = ({
 					data: error.response?.data,
 				});
 				
-				// ✅ Axios interceptor đã show notification rồi
-				// Nhưng cần rollback UI nếu API fail
-				
-				// Rollback UI by refetching data
 				console.log('[ROLLBACK] Refreshing board data...');
 				await fetchBoardData();
 			}
 		};
 
-		// Execute sync
 		syncWithBackend();
 
-	}, [data, workflowId, projectId]);
+	}, [data, workflowId, projectId, t]);
 
 	useEffect(() => {
 		return liveRegion.cleanup();
@@ -392,7 +380,6 @@ export const BoardComponent: React.FC<BoardProps> = ({
 		[],
 	);
 
-	// Sync with backend when operations occur
 	useEffect(() => {
 		if (!data || data.lastOperation === null) {
 			return;
@@ -445,13 +432,13 @@ export const BoardComponent: React.FC<BoardProps> = ({
 				}
 			} catch (error) {
 				console.error('[API CALL FAILED]', error);
-				message.error('Không thể đồng bộ với server');
+				message.error(t('issue.messages.syncFailed'));
 			}
 		};
 
 		syncWithBackend();
 
-	}, [data, workflowId]);
+	}, [data, workflowId, t]);
 
 	const [instanceId] = useState(() => Symbol('instance-id'));
 
@@ -589,44 +576,38 @@ export const BoardComponent: React.FC<BoardProps> = ({
 		};
 	}, [getColumns, reorderColumn, reorderCard, registry, moveCard, instanceId]);
 
-	// Loading state
 	if (loading) {
-		return <div>Loading board data...</div>;
+		return <div>{t('issue.board.loadingData')}</div>;
 	}
 
-	// Error state
 	if (error) {
-		return <div>Error: {error}</div>;
+		return <div>{t('issue.board.error', { error })}</div>;
 	}
 
-	// No data state
 	if (!data || !displayData) {
-		return <div>No data available</div>;
+		return <div>{t('issue.board.noData')}</div>;
 	}
 
 	return (
 		<BoardContext.Provider value={contextValue}>
-			{/* Header với Filter và Actions */}
 			<div style={{ marginBottom: 16 }}>
-				{/* Action Buttons */}
 				<Space style={{ marginBottom: 12 }}>
 					<Button 
 						type="primary" 
 						icon={<PlusOutlined />}
 						onClick={() => setIsCreateModalOpen(true)}
 					>
-						Tạo Issue
+						{t('issue.board.createIssue')}
 					</Button>
 					<Button 
 						icon={<ReloadOutlined />}
 						onClick={handleRefresh}
 						loading={loading}
 					>
-						Làm mới
+						{t('issue.board.refresh')}
 					</Button>
 				</Space>
 
-				{/* Filter Component */}
 				<BoardFilter
 					projectId={projectId}
 					onFilterChange={handleFilterChange}
@@ -635,14 +616,12 @@ export const BoardComponent: React.FC<BoardProps> = ({
 				/>
 			</div>
 
-			{/* Board */}
 			<Board>
 				{displayData.orderedColumnIds.map((columnId: any) => {
 					return <Column column={displayData.columnMap[columnId]} key={columnId} />;
 				})}
 			</Board>
 			
-			{/* Create Issue Modal */}
 			<CreateIssueModal
 				visible={isCreateModalOpen}
 				onClose={() => setIsCreateModalOpen(false)}
@@ -651,4 +630,4 @@ export const BoardComponent: React.FC<BoardProps> = ({
 			/>
 		</BoardContext.Provider>
 	);
-}
+};
