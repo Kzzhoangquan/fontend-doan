@@ -318,8 +318,10 @@ export const AddMemberModal: React.FC<AddMemberModalProps> = ({
                                                     description={
                                                         <Space split="-">
                                                             <Text type="secondary">{emp.email}</Text>
-                                                            {emp.department && (
-                                                                <Text type="secondary">{emp.department}</Text>
+                                                            {(emp.department || (emp as any).employee_positions?.find((ep: any) => ep.is_current)?.department?.name) && (
+                                                                <Text type="secondary">
+                                                                    {emp.department || (emp as any).employee_positions?.find((ep: any) => ep.is_current)?.department?.name}
+                                                                </Text>
                                                             )}
                                                         </Space>
                                                     }

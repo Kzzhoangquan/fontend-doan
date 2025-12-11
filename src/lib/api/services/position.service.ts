@@ -6,6 +6,11 @@ export interface Position {
   title: string;
   description: string | null;
   level: number | null;
+  department_id: number | null;
+  department?: {
+    id: number;
+    name: string;
+  } | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -22,18 +27,21 @@ export interface GetPositionsParams {
   page?: number;
   pageSize?: number;
   search?: string;
+  departmentId?: number;
 }
 
 export interface CreatePositionDto {
   title: string;
   level?: number;
   description?: string;
+  department_id?: number;
 }
 
 export interface UpdatePositionDto {
   title?: string;
   level?: number;
   description?: string;
+  department_id?: number;
 }
 
 export const positionService = {

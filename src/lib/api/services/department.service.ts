@@ -70,5 +70,35 @@ export const departmentService = {
     const response = await api.get<Department[]>('/departments/tree');
     return response.data;
   },
+
+  getEmployees: async (id: number): Promise<{
+    department: { id: number; name: string; description: string | null };
+    employees: Record<number, Array<{
+      id: number;
+      employee_code: string;
+      full_name: string;
+      email: string;
+      phone: string | null;
+      position: { id: number; title: string; level: number | null } | null;
+      department_id: number | null;
+      department_name: string | null;
+    }>>;
+    totalEmployees: number;
+    totalPositions: number;
+    departmentIds: number[];
+  }> => {
+    const response = await api.get(`/departments/${id}/employees`);
+    return response.data;
+  },
+
+  getStatistics: async (id: number): Promise<{
+    department: { id: number; name: string };
+    totalEmployees: number;
+    childDepartments: number;
+    totalDepartments: number;
+  }> => {
+    const response = await api.get(`/departments/${id}/statistics`);
+    return response.data;
+  },
 };
 
