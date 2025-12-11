@@ -498,12 +498,12 @@ export default function SalaryPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Bảng lương tháng {selectedMonth}/{selectedYear}
-            </h2>
-            <span className="text-sm text-gray-600">
-              Tổng: {salaries.length} nhân viên
-            </span>
+          <h2 className="text-xl font-semibold text-gray-900">
+            Bảng lương tháng {selectedMonth}/{selectedYear}
+          </h2>
+          <span className="text-sm text-gray-600">
+            Tổng: {salaries.length} nhân viên
+          </span>
           </div>
           
           {/* Bulk Actions */}
