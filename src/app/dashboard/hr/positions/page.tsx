@@ -3,18 +3,26 @@
 
 import { useState, useEffect } from 'react';
 import { notification } from 'antd';
-import { Briefcase, Search, Plus, Edit, Trash2, Eye, Loader2 } from 'lucide-react';
+import { Briefcase, Search, Plus, Edit, Trash2, Eye, Loader2, Building2, List, Network, ChevronRight, ChevronDown } from 'lucide-react';
 import { positionService, Position, CreatePositionDto, UpdatePositionDto } from '@/lib/api/services/position.service';
+import { departmentService, Department } from '@/lib/api/services/department.service';
 import { useAuth } from '@/hooks/useAuth';
 import { UserRole } from '@/lib/constants/roles';
+
+type ViewMode = 'table' | 'tree';
 
 export default function PositionsPage() {
   const { hasRole } = useAuth();
   const [api, contextHolder] = notification.useNotification();
 
   // States
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [positions, setPositions] = useState<Position[]>([]);
+  const [allPositions, setAllPositions] = useState<Position[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [departmentTree, setDepartmentTree] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  const [treeLoading, setTreeLoading] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -25,20 +33,37 @@ export default function PositionsPage() {
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [optionsLoading, setOptionsLoading] = useState(false);
+  const [expandedDepartments, setExpandedDepartments] = useState<Set<number>>(new Set());
   const [formData, setFormData] = useState<CreatePositionDto>({
     title: '',
     description: '',
     level: undefined,
+    department_id: undefined,
   });
 
   // Fetch positions với debounce
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      fetchPositions();
+      if (viewMode === 'table') {
+        fetchPositions();
+      } else {
+        fetchAllPositionsForTree();
+      }
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [page, search]);
+  }, [page, search, viewMode]);
+
+  useEffect(() => {
+    if (viewMode === 'tree') {
+      fetchDepartmentTree();
+    }
+  }, [viewMode]);
+
+  useEffect(() => {
+    fetchDepartments();
+  }, []);
 
   const fetchPositions = async () => {
     setLoading(true);
@@ -59,6 +84,59 @@ export default function PositionsPage() {
       setError(err.response?.data?.message || 'Không thể tải danh sách vị trí');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAllPositionsForTree = async () => {
+    setTreeLoading(true);
+    setError('');
+
+    try {
+      const data = await positionService.getAll({
+        page: 1,
+        pageSize: 1000,
+        search: search.trim(),
+      });
+
+      setAllPositions(data.data);
+    } catch (err: any) {
+      console.error('Error fetching all positions:', err);
+      setError(err.response?.data?.message || 'Không thể tải danh sách vị trí');
+    } finally {
+      setTreeLoading(false);
+    }
+  };
+
+  const fetchDepartmentTree = async () => {
+    try {
+      const data = await departmentService.getTree();
+      setDepartmentTree(data);
+      // Auto expand all departments initially
+      const allIds = new Set<number>();
+      const collectIds = (depts: Department[]) => {
+        depts.forEach(dept => {
+          allIds.add(dept.id);
+          if (dept.children) {
+            collectIds(dept.children);
+          }
+        });
+      };
+      collectIds(data);
+      setExpandedDepartments(allIds);
+    } catch (err: any) {
+      console.error('Error fetching department tree:', err);
+    }
+  };
+
+  const fetchDepartments = async () => {
+    setOptionsLoading(true);
+    try {
+      const data = await departmentService.getAll({ pageSize: 1000 });
+      setDepartments(data.data);
+    } catch (err: any) {
+      console.error('Error fetching departments:', err);
+    } finally {
+      setOptionsLoading(false);
     }
   };
 
@@ -84,7 +162,11 @@ export default function PositionsPage() {
 
     try {
       await positionService.delete(id);
-      fetchPositions();
+      if (viewMode === 'table') {
+        fetchPositions();
+      } else {
+        fetchAllPositionsForTree();
+      }
       showNotification('success', 'Xóa vị trí thành công!');
     } catch (err: any) {
       console.error('Error deleting position:', err);
@@ -100,8 +182,12 @@ export default function PositionsPage() {
       title: '',
       description: '',
       level: undefined,
+      department_id: undefined,
     });
     setFormError('');
+    if (departments.length === 0) {
+      fetchDepartments();
+    }
   };
 
   const openEditModal = async (positionId: number) => {
@@ -114,8 +200,12 @@ export default function PositionsPage() {
         title: position.title,
         description: position.description || '',
         level: position.level || undefined,
+        department_id: position.department_id || undefined,
       });
       setModalMode('edit');
+      if (departments.length === 0) {
+        fetchDepartments();
+      }
     } catch (err: any) {
       showNotification('error', 'Không thể tải chi tiết vị trí', err.response?.data?.message);
     } finally {
@@ -150,6 +240,112 @@ export default function PositionsPage() {
     }));
   };
 
+  const toggleDepartment = (departmentId: number) => {
+    setExpandedDepartments(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(departmentId)) {
+        newSet.delete(departmentId);
+      } else {
+        newSet.add(departmentId);
+      }
+      return newSet;
+    });
+  };
+
+  const getPositionsByDepartment = (departmentId: number | null): Position[] => {
+    return allPositions.filter(pos => pos.department_id === departmentId);
+  };
+
+  const getPositionsWithoutDepartment = (): Position[] => {
+    return allPositions.filter(pos => pos.department_id === null);
+  };
+
+  const renderDepartmentTree = (depts: Department[], level: number = 0): JSX.Element[] => {
+    return depts.map(dept => {
+      const positionsInDept = getPositionsByDepartment(dept.id);
+      const isExpanded = expandedDepartments.has(dept.id);
+      const hasChildren = dept.children && dept.children.length > 0;
+      const hasPositions = positionsInDept.length > 0;
+
+      return (
+        <div key={dept.id}>
+          <div
+            className={`flex items-center gap-2 p-3 hover:bg-gray-50 rounded-lg cursor-pointer ${level > 0 ? 'ml-6' : ''}`}
+            style={{ paddingLeft: `${level * 1.5}rem` }}
+          >
+            {hasChildren && (
+              <button
+                onClick={() => toggleDepartment(dept.id)}
+                className="p-1 hover:bg-gray-200 rounded"
+              >
+                {isExpanded ? (
+                  <ChevronDown className="w-4 h-4 text-gray-600" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-gray-600" />
+                )}
+              </button>
+            )}
+            {!hasChildren && <div className="w-6" />}
+            <Building2 className="w-4 h-4 text-blue-600" />
+            <span className="font-medium text-gray-900">{dept.name}</span>
+            {hasPositions && (
+              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                {positionsInDept.length} vị trí
+              </span>
+            )}
+          </div>
+          {isExpanded && hasPositions && (
+            <div className="ml-8 space-y-1">
+              {positionsInDept.map(pos => (
+                <div
+                  key={pos.id}
+                  className="flex items-center justify-between p-2 pl-8 bg-gray-50 rounded-lg hover:bg-gray-100"
+                >
+                  <div className="flex items-center gap-3">
+                    <Briefcase className="w-4 h-4 text-gray-400" />
+                    <div>
+                      <p className="font-medium text-gray-900">{pos.title}</p>
+                      {pos.level && (
+                        <p className="text-xs text-gray-500">Cấp độ: {pos.level}</p>
+                      )}
+                    </div>
+                  </div>
+                  {canManage && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openViewModal(pos.id)}
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => openEditModal(pos.id)}
+                        className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(pos.id, pos.title)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {isExpanded && hasChildren && dept.children && (
+            <div className="ml-4">
+              {renderDepartmentTree(dept.children, level + 1)}
+            </div>
+          )}
+        </div>
+      );
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!modalMode || modalMode === 'view') return;
@@ -171,7 +367,12 @@ export default function PositionsPage() {
         showNotification('success', 'Cập nhật vị trí thành công');
       }
       closeModal();
-      fetchPositions();
+      if (viewMode === 'table') {
+        fetchPositions();
+      } else {
+        fetchAllPositionsForTree();
+        fetchDepartmentTree();
+      }
     } catch (err: any) {
       const message = err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại';
       setFormError(Array.isArray(message) ? message.join(', ') : message);
@@ -192,18 +393,51 @@ export default function PositionsPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Quản lý vị trí</h1>
-              <p className="text-sm text-gray-500">Tổng số: {total} vị trí</p>
+              <p className="text-sm text-gray-500">
+                Tổng số: {viewMode === 'table' ? total : allPositions.length} vị trí
+              </p>
             </div>
           </div>
-          {canManage && (
-            <button
-              onClick={openCreateModal}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-              Thêm vị trí
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('table')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'table'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <List className="w-4 h-4" />
+                  Bảng
+                </div>
+              </button>
+              <button
+                onClick={() => setViewMode('tree')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'tree'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Network className="w-4 h-4" />
+                  Sơ đồ cây
+                </div>
+              </button>
+            </div>
+            {canManage && (
+              <button
+                onClick={openCreateModal}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-5 h-5" />
+                Thêm vị trí
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Search */}
@@ -227,7 +461,7 @@ export default function PositionsPage() {
       )}
 
       {/* Loading */}
-      {loading ? (
+      {(loading || (viewMode === 'tree' && treeLoading)) ? (
         <div className="bg-white rounded-xl shadow-sm p-12">
           <div className="flex flex-col items-center justify-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
@@ -236,84 +470,161 @@ export default function PositionsPage() {
         </div>
       ) : (
         <>
-          {/* Table */}
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Tên vị trí
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Cấp độ
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Mô tả
-                    </th>
-                    {canManage && (
-                      <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase">
-                        Thao tác
+          {viewMode === 'table' ? (
+            /* Table View */
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Tên vị trí
                       </th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {positions.map((pos) => (
-                    <tr key={pos.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <p className="font-medium text-gray-900">{pos.title}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm text-gray-600">{pos.level || 'N/A'}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm text-gray-600">{pos.description || 'N/A'}</p>
-                      </td>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Phòng ban
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Cấp độ
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
+                        Mô tả
+                      </th>
                       {canManage && (
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => openViewModal(pos.id)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => openEditModal(pos.id)}
-                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(pos.id, pos.title)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
+                        <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase">
+                          Thao tác
+                        </th>
                       )}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Empty State */}
-            {positions.length === 0 && !loading && (
-              <div className="text-center py-12">
-                <Briefcase className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500 text-lg font-medium">Không tìm thấy vị trí</p>
-                <p className="text-gray-400 text-sm mt-1">
-                  {search ? 'Thử thay đổi từ khóa tìm kiếm' : 'Thêm vị trí mới để bắt đầu'}
-                </p>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {positions.map((pos) => (
+                      <tr key={pos.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <p className="font-medium text-gray-900">{pos.title}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm text-gray-600">
+                            {pos.department?.name || 'Chưa phân công'}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm text-gray-600">{pos.level || 'N/A'}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm text-gray-600">{pos.description || 'N/A'}</p>
+                        </td>
+                        {canManage && (
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => openViewModal(pos.id)}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => openEditModal(pos.id)}
+                                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(pos.id, pos.title)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
+              {/* Empty State */}
+              {positions.length === 0 && !loading && (
+                <div className="text-center py-12">
+                  <Briefcase className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500 text-lg font-medium">Không tìm thấy vị trí</p>
+                  <p className="text-gray-400 text-sm mt-1">
+                    {search ? 'Thử thay đổi từ khóa tìm kiếm' : 'Thêm vị trí mới để bắt đầu'}
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Tree View */
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="space-y-2">
+                {departmentTree.length > 0 ? (
+                  <>
+                    {renderDepartmentTree(departmentTree)}
+                    {getPositionsWithoutDepartment().length > 0 && (
+                      <div className="mt-6 pt-6 border-t">
+                        <div className="flex items-center gap-2 p-3">
+                          <Briefcase className="w-4 h-4 text-gray-400" />
+                          <span className="font-medium text-gray-700">Chưa phân công phòng ban</span>
+                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                            {getPositionsWithoutDepartment().length} vị trí
+                          </span>
+                        </div>
+                        <div className="ml-8 space-y-1 mt-2">
+                          {getPositionsWithoutDepartment().map(pos => (
+                            <div
+                              key={pos.id}
+                              className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100"
+                            >
+                              <div className="flex items-center gap-3">
+                                <Briefcase className="w-4 h-4 text-gray-400" />
+                                <div>
+                                  <p className="font-medium text-gray-900">{pos.title}</p>
+                                  {pos.level && (
+                                    <p className="text-xs text-gray-500">Cấp độ: {pos.level}</p>
+                                  )}
+                                </div>
+                              </div>
+                              {canManage && (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => openViewModal(pos.id)}
+                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => openEditModal(pos.id)}
+                                    className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(pos.id, pos.title)}
+                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-12">
+                    <Network className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500 text-lg font-medium">Không có dữ liệu</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Pagination - Only show in table view */}
+          {viewMode === 'table' && totalPages > 1 && (
             <div className="bg-white rounded-xl shadow-sm p-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-gray-600">
@@ -396,6 +707,10 @@ export default function PositionsPage() {
             {modalMode === 'view' && selectedPosition ? (
               <div className="p-6 space-y-4">
                 <DetailField label="Tên vị trí" value={selectedPosition.title} />
+                <DetailField 
+                  label="Phòng ban" 
+                  value={selectedPosition.department?.name || 'Chưa phân công'} 
+                />
                 <DetailField label="Cấp độ" value={selectedPosition.level?.toString() || 'N/A'} />
                 <DetailField label="Mô tả" value={selectedPosition.description || 'N/A'} />
                 <div className="flex items-center justify-end pt-4 border-t">
@@ -416,6 +731,30 @@ export default function PositionsPage() {
                   required
                   disabled={formSubmitting}
                 />
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phòng ban
+                  </label>
+                  <select
+                    value={formData.department_id || ''}
+                    onChange={(e) =>
+                      handleFormChange('department_id', e.target.value ? Number(e.target.value) : undefined)
+                    }
+                    disabled={formSubmitting || optionsLoading}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
+                  >
+                    <option value="">Chọn phòng ban (tùy chọn)</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Để trống nếu vị trí không thuộc phòng ban cụ thể
+                  </p>
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

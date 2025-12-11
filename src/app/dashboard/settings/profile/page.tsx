@@ -435,8 +435,19 @@ export default function ProfilePage() {
               </div>
               <h2 className="text-xl font-semibold text-gray-900">{user?.full_name || 'Chưa có tên'}</h2>
               <p className="text-sm text-gray-500 mt-1">{user?.employee_code || ''}</p>
-              <p className="text-sm text-gray-500 mt-1">{user?.position || ''}</p>
-              <p className="text-sm text-gray-500 mt-1">{user?.department || ''}</p>
+              {user?.employee_positions && user.employee_positions.length > 0 && (
+                <>
+                  {user.employee_positions
+                    .filter(ep => ep.is_current)
+                    .slice(0, 1)
+                    .map((ep, idx) => (
+                      <div key={ep.id || idx}>
+                        <p className="text-sm text-gray-500 mt-1">{ep.position?.title || ''}</p>
+                        <p className="text-sm text-gray-500 mt-1">{ep.department?.name || ''}</p>
+                      </div>
+                    ))}
+                </>
+              )}
               
               {user?.roles && user.roles.length > 0 && (
                 <div className="mt-4">

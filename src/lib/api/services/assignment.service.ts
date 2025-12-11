@@ -7,8 +7,28 @@ export interface Employee {
   id: number;
   employee_code: string;
   full_name: string;
-  department?: string;
-  position?: string;
+  employee_positions?: Array<{
+    id: number;
+    employee_id: number;
+    department_id: number | null;
+    position_id: number | null;
+    start_date: string;
+    end_date: string | null;
+    is_current: boolean;
+    department?: {
+      id: number;
+      name: string;
+    } | null;
+    position?: {
+      id: number;
+      title: string;
+      level: number | null;
+    } | null;
+  }>;
+  department_relation?: {
+    id: number;
+    name: string;
+  } | null;
 }
 
 export type AssignmentStatus = 'ASSIGNED' | 'RETURNED';
