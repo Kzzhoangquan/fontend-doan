@@ -26,7 +26,6 @@ import { setCustomNativeDragPreview } from '@atlaskit/pragmatic-drag-and-drop/el
 import { Box, Flex, Inline, Stack, xcss } from '@atlaskit/primitives';
 import { token } from '@atlaskit/tokens';
 
-import { type ColumnType } from '../../data/people';
 import { useBoardContext } from './board-context';
 import { Card } from './card';
 import { ColumnContext, type ColumnContextProps, useColumnContext } from './column-context';
@@ -65,6 +64,27 @@ const columnHeaderStyles = xcss({
 	color: 'color.text.subtlest',
 	userSelect: 'none',
 });
+
+export type ColumnType = {
+	title: string;
+	columnId: string;
+	items: Issue[];
+};
+
+export type Issue = {
+	id: number;
+	issueId: string;
+	name: string;
+	summary: string;
+	epic_name: string;
+	issue_type: string;
+	priority: string;
+	points: number;
+	role: string;
+	avatarUrl: string;
+};
+
+export type ColumnMap = { [columnId: string]: ColumnType };
 
 type State =
 	| { type: 'idle' }

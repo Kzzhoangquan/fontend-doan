@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import invariant from 'tiny-invariant';
-import { triggerPostMoveFlash } from '@atlaskit/pragmatic-drag-and-drop-flourish/trigger-post-move-flash';
 import { extractClosestEdge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge';
 import type { Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/types';
 import { getReorderDestinationIndex } from '@atlaskit/pragmatic-drag-and-drop-hitbox/util/get-reorder-destination-index';
@@ -10,12 +9,11 @@ import * as liveRegion from '@atlaskit/pragmatic-drag-and-drop-live-region';
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine';
 import { monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { reorder } from '@atlaskit/pragmatic-drag-and-drop/reorder';
-import { useRouter, usePathname } from 'next/navigation';
 import { Button, message, Space } from 'antd';
 import { AppstoreAddOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
-import { type ColumnMap, type ColumnType, type Issue } from '@/components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/data/people';
+import { type ColumnMap, type ColumnType, type Issue } from '@/components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/column';
 import Board from '@/components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/board';
 import { BoardContext, type BoardContextValue } from '@/components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/board-context';
 import { Column } from '@/components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/pieces/board/column';
