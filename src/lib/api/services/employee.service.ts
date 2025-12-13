@@ -8,6 +8,25 @@ export interface Role {
   description: string;
 }
 
+export interface EmployeePosition {
+  id: number;
+  employee_id: number;
+  department_id: number | null;
+  position_id: number | null;
+  start_date: string;
+  end_date: string | null;
+  is_current: boolean;
+  department?: {
+    id: number;
+    name: string;
+  } | null;
+  position?: {
+    id: number;
+    title: string;
+    level: number | null;
+  } | null;
+}
+
 export interface Employee {
   id: number;
   employee_code: string;
@@ -19,13 +38,13 @@ export interface Employee {
   gender: string;
   dob: string;
   phone: string;
-  department: string;
-  position: string;
   avatar_url: string | null;
   status: string;
   roles: Role[];
   password?: string;
   is_verified?: boolean;
+  two_factor_enabled?: boolean;
+  employee_positions?: EmployeePosition[]; // New field for multiple positions
   // Salary settings
   base_salary?: number;
   allowance?: number;
@@ -91,6 +110,14 @@ export const employeeService = {
    */
   update: async (id: number, data: Partial<Employee>): Promise<Employee> => {
     const response = await api.patch<Employee>(`/employees/${id}`, sanitizePayload(data));
+    return response.data;
+  },
+
+  /**
+   * Unlock employee account (reset failed login attempts)
+   */
+  unlockAccount: async (id: number): Promise<Employee> => {
+    const response = await api.post<Employee>(`/employees/${id}/unlock`);
     return response.data;
   },
 

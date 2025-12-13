@@ -6,13 +6,17 @@ import { notification } from 'antd';
 import { CheckSquare, Search, Plus, Edit, Trash2, Eye, Loader2, X, CheckCircle, XCircle, Clock, BarChart3, PieChart } from 'lucide-react';
 import { PieChart as RechartsPieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { 
-  leaveRequestService, 
-  LeaveRequest, 
-  CreateLeaveRequestDto, 
-  UpdateLeaveRequestDto,
+  hrRequestService,
+  HrRequest,
+  HrRequestType,
+  HrRequestStatus,
   LeaveType,
-  LeaveStatus 
-} from '@/lib/api/services/leave-request.service';
+  LateEarlyType,
+  CreateLeaveRequestDto,
+  CreateOvertimeRequestDto,
+  CreateLateEarlyRequestDto,
+  UpdateHrRequestDto,
+} from '@/lib/api/services/hr-request.service';
 import { useAuth } from '@/hooks/useAuth';
 import { UserRole } from '@/lib/constants/roles';
 
@@ -26,12 +30,23 @@ const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
   [LeaveType.OTHER]: 'Khác',
 };
 
+const HR_REQUEST_TYPE_LABELS: Record<HrRequestType, string> = {
+  [HrRequestType.LEAVE]: 'Nghỉ phép',
+  [HrRequestType.OVERTIME]: 'Làm thêm giờ',
+  [HrRequestType.LATE_EARLY]: 'Đi muộn/Về sớm',
+};
+
+const LATE_EARLY_TYPE_LABELS: Record<LateEarlyType, string> = {
+  [LateEarlyType.LATE]: 'Đi muộn',
+  [LateEarlyType.EARLY]: 'Về sớm',
+};
+
 export default function RequestsPage() {
   const { hasRole, user } = useAuth();
   const [api, contextHolder] = notification.useNotification();
 
   // States
-  const [requests, setRequests] = useState<LeaveRequest[]>([]);
+  const [requests, setRequests] = useState<HrRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -40,20 +55,34 @@ export default function RequestsPage() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view' | null>(null);
-  const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<HrRequest | null>(null);
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
-  const [filterStatus, setFilterStatus] = useState<LeaveStatus | undefined>(undefined);
+  const [filterStatus, setFilterStatus] = useState<HrRequestStatus | undefined>(undefined);
+  const [filterRequestType, setFilterRequestType] = useState<HrRequestType | undefined>(undefined);
   const [filterStartDate, setFilterStartDate] = useState<string>('');
   const [filterEndDate, setFilterEndDate] = useState<string>('');
-  const [formData, setFormData] = useState<CreateLeaveRequestDto>({
-    type: LeaveType.ANNUAL,
+  const [selectedRequestType, setSelectedRequestType] = useState<HrRequestType>(HrRequestType.LEAVE);
+  const [leaveFormData, setLeaveFormData] = useState<CreateLeaveRequestDto>({
+    leave_type: LeaveType.ANNUAL,
     start_date: '',
     end_date: '',
-    total_days: undefined,
     reason: '',
   });
-  const [allRequests, setAllRequests] = useState<LeaveRequest[]>([]);
+  const [overtimeFormData, setOvertimeFormData] = useState<CreateOvertimeRequestDto>({
+    date: '',
+    start_time: '',
+    end_time: '',
+    reason: '',
+  });
+  const [lateEarlyFormData, setLateEarlyFormData] = useState<CreateLateEarlyRequestDto>({
+    date: '',
+    type: LateEarlyType.LATE,
+    actual_time: '',
+    minutes: undefined,
+    reason: '',
+  });
+  const [allRequests, setAllRequests] = useState<HrRequest[]>([]);
   const [statsLoading, setStatsLoading] = useState(false);
   const [leaveBalance, setLeaveBalance] = useState<{
     limit: number;
@@ -74,17 +103,33 @@ export default function RequestsPage() {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [page, search, filterStatus, filterStartDate, filterEndDate]);
+  }, [page, search, filterStatus, filterRequestType, filterStartDate, filterEndDate]);
 
   useEffect(() => {
     // Set default dates only on client side
-    if (typeof window !== 'undefined' && !formData.start_date) {
+    if (typeof window !== 'undefined') {
       const today = new Date().toISOString().split('T')[0];
-      setFormData(prev => ({
-        ...prev,
-        start_date: today,
-        end_date: today,
-      }));
+      if (!leaveFormData.start_date) {
+        setLeaveFormData(prev => ({
+          ...prev,
+          start_date: today,
+          end_date: today,
+        }));
+      }
+      if (!overtimeFormData.date) {
+        setOvertimeFormData(prev => ({
+          ...prev,
+          date: today,
+          start_time: '18:00',
+          end_time: '20:00',
+        }));
+      }
+      if (!lateEarlyFormData.date) {
+        setLateEarlyFormData(prev => ({
+          ...prev,
+          date: today,
+        }));
+      }
     }
   }, []);
 
@@ -100,8 +145,8 @@ export default function RequestsPage() {
       if (isEmployee && user?.id) {
         params.employeeId = user.id;
       }
-      const data = await leaveRequestService.getAll(params);
-      setAllRequests(data.data);
+      const data = await hrRequestService.getAll({ ...params });
+      setAllRequests(data);
     } catch (err: any) {
       console.error('Error fetching all requests for stats:', err);
     } finally {
@@ -132,10 +177,14 @@ export default function RequestsPage() {
         params.endDate = filterEndDate;
       }
 
-      const data = await leaveRequestService.getAll(params);
-      setRequests(data.data);
-      setTotal(data.total);
-      setTotalPages(data.totalPages);
+      const allData = await hrRequestService.getAll({ ...params, requestType: filterRequestType });
+      // Implement pagination manually
+      const filteredData = filterRequestType ? allData.filter(r => r.request_type === filterRequestType) : allData;
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      setRequests(filteredData.slice(startIndex, endIndex));
+      setTotal(filteredData.length);
+      setTotalPages(Math.ceil(filteredData.length / pageSize));
     } catch (err: any) {
       console.error('Error fetching requests:', err);
       setError(err.response?.data?.message || 'Không thể tải danh sách yêu cầu');
@@ -160,7 +209,7 @@ export default function RequestsPage() {
     if (!confirm('Bạn có chắc muốn xóa yêu cầu này?')) return;
 
     try {
-      await leaveRequestService.delete(id);
+      await hrRequestService.delete(id);
       fetchRequests();
       showNotification('success', 'Xóa yêu cầu thành công!');
     } catch (err: any) {
@@ -172,7 +221,7 @@ export default function RequestsPage() {
   const handleApprove = async (id: number) => {
     try {
       setFormSubmitting(true);
-      await leaveRequestService.approve(id);
+      await hrRequestService.approve(id);
       showNotification('success', 'Phê duyệt yêu cầu thành công!');
       fetchRequests();
     } catch (err: any) {
@@ -185,7 +234,7 @@ export default function RequestsPage() {
   const handleReject = async (id: number) => {
     try {
       setFormSubmitting(true);
-      await leaveRequestService.reject(id);
+      await hrRequestService.reject(id);
       showNotification('success', 'Từ chối yêu cầu thành công!');
       fetchRequests();
     } catch (err: any) {
@@ -200,7 +249,7 @@ export default function RequestsPage() {
 
     try {
       setFormSubmitting(true);
-      await leaveRequestService.cancel(id);
+      await hrRequestService.cancel(id);
       showNotification('success', 'Hủy yêu cầu thành công!');
       fetchRequests();
     } catch (err: any) {
@@ -212,12 +261,25 @@ export default function RequestsPage() {
 
   const openCreateModal = () => {
     setModalMode('create');
+    setSelectedRequestType(HrRequestType.LEAVE);
     const today = typeof window !== 'undefined' ? new Date().toISOString().split('T')[0] : '';
-    setFormData({
-      type: LeaveType.ANNUAL,
+    setLeaveFormData({
+      leave_type: LeaveType.ANNUAL,
       start_date: today,
       end_date: today,
-      total_days: undefined,
+      reason: '',
+    });
+    setOvertimeFormData({
+      date: today,
+      start_time: '18:00',
+      end_time: '20:00',
+      reason: '',
+    });
+    setLateEarlyFormData({
+      date: today,
+      type: LateEarlyType.LATE,
+      actual_time: '',
+      minutes: undefined,
       reason: '',
     });
     setFormError('');
@@ -227,15 +289,16 @@ export default function RequestsPage() {
     setFormError('');
     try {
       setFormSubmitting(true);
-      const request = await leaveRequestService.getById(requestId);
+      const request = await hrRequestService.getById(requestId);
       setSelectedRequest(request);
-      setFormData({
-        type: request.type,
-        start_date: request.start_date,
-        end_date: request.end_date,
-        total_days: request.total_days || undefined,
-        reason: request.reason || '',
-      });
+      if (request.request_type === HrRequestType.LEAVE) {
+        setFormData({
+          leave_type: request.leave_type || LeaveType.ANNUAL,
+          start_date: request.start_date || '',
+          end_date: request.end_date || '',
+          reason: request.reason || '',
+        });
+      }
       setModalMode('edit');
     } catch (err: any) {
       showNotification('error', 'Không thể tải chi tiết yêu cầu', err.response?.data?.message);
@@ -248,7 +311,7 @@ export default function RequestsPage() {
     setFormError('');
     try {
       setFormSubmitting(true);
-      const request = await leaveRequestService.getById(requestId);
+      const request = await hrRequestService.getById(requestId);
       setSelectedRequest(request);
       setModalMode('view');
     } catch (err: any) {
@@ -275,25 +338,64 @@ export default function RequestsPage() {
     return diffDays;
   };
 
-  // Auto calculate days when dates change
+  // Auto calculate days when dates change (for leave requests)
   useEffect(() => {
-    if ((modalMode === 'create' || modalMode === 'edit') && formData.start_date && formData.end_date) {
-      const calculatedDays = calculateDays(formData.start_date, formData.end_date);
-      if (calculatedDays > 0) {
-        setFormData(prev => {
-          // Only update if the calculated value is different to avoid infinite loop
-          if (prev.total_days !== calculatedDays) {
-            return { ...prev, total_days: calculatedDays };
-          }
-          return prev;
-        });
-      }
+    if (
+      (modalMode === 'create' || modalMode === 'edit') &&
+      selectedRequestType === HrRequestType.LEAVE &&
+      leaveFormData.start_date &&
+      leaveFormData.end_date
+    ) {
+      const calculatedDays = calculateDays(leaveFormData.start_date, leaveFormData.end_date);
+      // Days are calculated automatically, no need to store
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.start_date, formData.end_date, modalMode]);
+  }, [leaveFormData.start_date, leaveFormData.end_date, modalMode, selectedRequestType]);
 
-  const handleFormChange = (field: keyof CreateLeaveRequestDto, value: string | number | LeaveType) => {
-    setFormData(prev => ({
+  // Fetch leave balance when modal opens and type is ANNUAL
+  useEffect(() => {
+    const fetchLeaveBalance = async () => {
+      if (
+        (modalMode === 'create' || modalMode === 'edit') &&
+        selectedRequestType === HrRequestType.LEAVE &&
+        leaveFormData.leave_type === LeaveType.ANNUAL &&
+        isEmployee &&
+        user?.id
+      ) {
+        setBalanceLoading(true);
+        try {
+          const balance = await hrRequestService.getLeaveBalance(user.id);
+          setLeaveBalance(balance);
+        } catch (err: any) {
+          console.error('Error fetching leave balance:', err);
+          setLeaveBalance(null);
+        } finally {
+          setBalanceLoading(false);
+        }
+      } else {
+        // Reset balance when type changes or modal closes
+        setLeaveBalance(null);
+      }
+    };
+
+    fetchLeaveBalance();
+  }, [modalMode, selectedRequestType, leaveFormData.leave_type, isEmployee, user?.id]);
+
+  const handleLeaveFormChange = (field: keyof CreateLeaveRequestDto, value: string | number | LeaveType) => {
+    setLeaveFormData(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleOvertimeFormChange = (field: keyof CreateOvertimeRequestDto, value: string) => {
+    setOvertimeFormData(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleLateEarlyFormChange = (field: keyof CreateLateEarlyRequestDto, value: string | number | LateEarlyType) => {
+    setLateEarlyFormData(prev => ({
       ...prev,
       [field]: value,
     }));
@@ -306,68 +408,125 @@ export default function RequestsPage() {
     setFormSubmitting(true);
     setFormError('');
 
-    // Validate leave balance for ANNUAL type
-    if (formData.type === LeaveType.ANNUAL && formData.total_days) {
-      if (leaveBalance && formData.total_days > leaveBalance.remaining) {
-        setFormError(
-          `Vượt quá số ngày phép còn lại! Bạn còn ${leaveBalance.remaining} ngày phép trong năm ${leaveBalance.year}. Yêu cầu: ${formData.total_days} ngày.`
-        );
-        setFormSubmitting(false);
-        return;
-      }
-    }
-
-    const payload: CreateLeaveRequestDto | UpdateLeaveRequestDto = {
-      ...formData,
-      total_days: formData.total_days || undefined,
-    };
-
     try {
       if (modalMode === 'create') {
-      await leaveRequestService.create(payload as CreateLeaveRequestDto);
-      showNotification('success', 'Tạo yêu cầu thành công');
-    } else if (modalMode === 'edit' && selectedRequest) {
-      await leaveRequestService.update(selectedRequest.id, payload as UpdateLeaveRequestDto);
-      showNotification('success', 'Cập nhật yêu cầu thành công');
+        // Validate leave balance for ANNUAL type
+        if (selectedRequestType === HrRequestType.LEAVE) {
+          const totalDays = leaveFormData.start_date && leaveFormData.end_date 
+            ? calculateDays(leaveFormData.start_date, leaveFormData.end_date) 
+            : 0;
+          
+          if (leaveFormData.leave_type === LeaveType.ANNUAL && totalDays) {
+            // If balance not loaded yet, try to load it first
+            if (!leaveBalance && isEmployee && user?.id) {
+              try {
+                setBalanceLoading(true);
+                const balance = await hrRequestService.getLeaveBalance(user.id);
+                setLeaveBalance(balance);
+                if (totalDays > balance.remaining) {
+                  setFormError(
+                    `Vượt quá số ngày phép còn lại! Bạn còn ${balance.remaining} ngày phép trong năm ${balance.year}. Yêu cầu: ${totalDays} ngày.`
+                  );
+                  setFormSubmitting(false);
+                  setBalanceLoading(false);
+                  return;
+                }
+              } catch (err: any) {
+                console.error('Error fetching leave balance:', err);
+                setFormError('Không thể tải thông tin số ngày phép còn lại. Vui lòng thử lại.');
+                setFormSubmitting(false);
+                setBalanceLoading(false);
+                return;
+              } finally {
+                setBalanceLoading(false);
+              }
+            } else if (leaveBalance && totalDays > leaveBalance.remaining) {
+              setFormError(
+                `Vượt quá số ngày phép còn lại! Bạn còn ${leaveBalance.remaining} ngày phép trong năm ${leaveBalance.year}. Yêu cầu: ${totalDays} ngày.`
+              );
+              setFormSubmitting(false);
+              return;
+            }
+          }
+
+          await hrRequestService.createLeaveRequest(leaveFormData);
+          showNotification('success', 'Tạo yêu cầu nghỉ phép thành công');
+        } else if (selectedRequestType === HrRequestType.OVERTIME) {
+          await hrRequestService.createOvertimeRequest(overtimeFormData);
+          showNotification('success', 'Tạo yêu cầu làm thêm giờ thành công');
+        } else if (selectedRequestType === HrRequestType.LATE_EARLY) {
+          await hrRequestService.createLateEarlyRequest(lateEarlyFormData);
+          showNotification('success', 'Tạo yêu cầu đi muộn/về sớm thành công');
+        }
+      } else if (modalMode === 'edit' && selectedRequest) {
+        let updateData: UpdateHrRequestDto = {};
+        
+        if (selectedRequest.request_type === HrRequestType.LEAVE) {
+          updateData = {
+            leave_type: leaveFormData.leave_type,
+            start_date: leaveFormData.start_date,
+            end_date: leaveFormData.end_date,
+            reason: leaveFormData.reason,
+          };
+        } else if (selectedRequest.request_type === HrRequestType.OVERTIME) {
+          updateData = {
+            overtime_date: overtimeFormData.date,
+            start_time: overtimeFormData.start_time,
+            end_time: overtimeFormData.end_time,
+            reason: overtimeFormData.reason,
+          };
+        } else if (selectedRequest.request_type === HrRequestType.LATE_EARLY) {
+          updateData = {
+            late_early_date: lateEarlyFormData.date,
+            late_early_type: lateEarlyFormData.type,
+            actual_time: lateEarlyFormData.actual_time,
+            minutes: lateEarlyFormData.minutes,
+            reason: lateEarlyFormData.reason,
+          };
+        }
+
+        await hrRequestService.update(selectedRequest.id, updateData);
+        showNotification('success', 'Cập nhật yêu cầu thành công');
+      }
+      
+      closeModal();
+      fetchRequests();
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại';
+      setFormError(Array.isArray(message) ? message.join(', ') : message);
+    } finally {
+      setFormSubmitting(false);
     }
-    closeModal();
-    fetchRequests();
-  } catch (err: any) {
-    const message = err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại';
-    setFormError(Array.isArray(message) ? message.join(', ') : message);
-  } finally {
-    setFormSubmitting(false);
-  }
   };
 
-  const getStatusBadge = (status: LeaveStatus) => {
-    const statusMap: Record<LeaveStatus, { bg: string; text: string; label: string; icon: any }> = {
-      [LeaveStatus.PENDING]: { 
+  const getStatusBadge = (status: HrRequestStatus) => {
+    const statusMap: Record<HrRequestStatus, { bg: string; text: string; label: string; icon: any }> = {
+      [HrRequestStatus.PENDING]: { 
         bg: 'bg-yellow-100', 
         text: 'text-yellow-700', 
         label: 'Chờ duyệt',
         icon: Clock,
       },
-      [LeaveStatus.APPROVED]: { 
+      [HrRequestStatus.APPROVED]: { 
         bg: 'bg-green-100', 
         text: 'text-green-700', 
         label: 'Đã duyệt',
         icon: CheckCircle,
       },
-      [LeaveStatus.REJECTED]: { 
+      [HrRequestStatus.REJECTED]: { 
         bg: 'bg-red-100', 
         text: 'text-red-700', 
         label: 'Từ chối',
         icon: XCircle,
       },
-      [LeaveStatus.CANCELLED]: { 
+      [HrRequestStatus.CANCELLED]: { 
         bg: 'bg-gray-100', 
         text: 'text-gray-700', 
         label: 'Đã hủy',
         icon: X,
       },
     };
-    const style = statusMap[status] || statusMap[LeaveStatus.PENDING];
+    const style = statusMap[status] || statusMap[HrRequestStatus.PENDING];
     const Icon = style.icon;
     return (
       <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
@@ -388,11 +547,11 @@ export default function RequestsPage() {
 
   // Calculate request statistics
   const calculateRequestStats = () => {
-    const statusCount: Record<LeaveStatus, number> = {
-      [LeaveStatus.PENDING]: 0,
-      [LeaveStatus.APPROVED]: 0,
-      [LeaveStatus.REJECTED]: 0,
-      [LeaveStatus.CANCELLED]: 0,
+    const statusCount: Record<HrRequestStatus, number> = {
+      [HrRequestStatus.PENDING]: 0,
+      [HrRequestStatus.APPROVED]: 0,
+      [HrRequestStatus.REJECTED]: 0,
+      [HrRequestStatus.CANCELLED]: 0,
     };
     const typeCount: Record<LeaveType, number> = {
       [LeaveType.ANNUAL]: 0,
@@ -406,19 +565,23 @@ export default function RequestsPage() {
     let totalDays = 0;
 
     allRequests.forEach(req => {
-      statusCount[req.status]++;
-      typeCount[req.type]++;
-      if (req.total_days) {
-        totalDays += req.total_days;
+      if (req.request_type === HrRequestType.LEAVE) {
+        statusCount[req.status]++;
+        if (req.leave_type) {
+          typeCount[req.leave_type]++;
+        }
+        if (req.total_days) {
+          totalDays += req.total_days;
+        }
       }
     });
 
     const statusData = Object.entries(statusCount)
       .filter(([_, value]) => value > 0)
       .map(([status, value]) => ({
-        name: status === LeaveStatus.PENDING ? 'Chờ duyệt' :
-              status === LeaveStatus.APPROVED ? 'Đã duyệt' :
-              status === LeaveStatus.REJECTED ? 'Từ chối' : 'Đã hủy',
+        name: status === HrRequestStatus.PENDING ? 'Chờ duyệt' :
+              status === HrRequestStatus.APPROVED ? 'Đã duyệt' :
+              status === HrRequestStatus.REJECTED ? 'Từ chối' : 'Đã hủy',
         value,
       }));
 
@@ -436,7 +599,7 @@ export default function RequestsPage() {
       totalDays: Number(Number(totalDays ?? 0).toFixed(1)),
       totalRequests: allRequests.length,
       approvedRate: allRequests.length > 0 
-        ? Number(((statusCount[LeaveStatus.APPROVED] / allRequests.length) * 100).toFixed(1))
+        ? Number(((statusCount[HrRequestStatus.APPROVED] / allRequests.length) * 100).toFixed(1))
         : 0,
     };
   };
@@ -470,17 +633,30 @@ export default function RequestsPage() {
         {/* Filters */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Trạng thái</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Loại yêu cầu</label>
             <select
-              value={filterStatus || ''}
-              onChange={(e) => setFilterStatus(e.target.value ? (e.target.value as LeaveStatus) : undefined)}
+              value={filterRequestType || ''}
+              onChange={(e) => setFilterRequestType(e.target.value ? (e.target.value as HrRequestType) : undefined)}
               className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
             >
               <option value="">Tất cả</option>
-              <option value={LeaveStatus.PENDING}>Chờ duyệt</option>
-              <option value={LeaveStatus.APPROVED}>Đã duyệt</option>
-              <option value={LeaveStatus.REJECTED}>Từ chối</option>
-              <option value={LeaveStatus.CANCELLED}>Đã hủy</option>
+              {Object.entries(HR_REQUEST_TYPE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Trạng thái</label>
+            <select
+              value={filterStatus || ''}
+              onChange={(e) => setFilterStatus(e.target.value ? (e.target.value as HrRequestStatus) : undefined)}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            >
+              <option value="">Tất cả</option>
+              <option value={HrRequestStatus.PENDING}>Chờ duyệt</option>
+              <option value={HrRequestStatus.APPROVED}>Đã duyệt</option>
+              <option value={HrRequestStatus.REJECTED}>Từ chối</option>
+              <option value={HrRequestStatus.CANCELLED}>Đã hủy</option>
             </select>
           </div>
               <div>
@@ -546,16 +722,10 @@ export default function RequestsPage() {
                       </th>
                     )}
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Loại
+                      Loại yêu cầu
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Từ ngày
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Đến ngày
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Số ngày
+                      Chi tiết
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
                       Trạng thái
@@ -579,19 +749,47 @@ export default function RequestsPage() {
                         </td>
                       )}
                       <td className="px-6 py-4">
-                        <p className="text-sm text-gray-900">{LEAVE_TYPE_LABELS[req.type] || req.type}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {HR_REQUEST_TYPE_LABELS[req.request_type]}
+                        </p>
+                        {req.request_type === HrRequestType.LEAVE && req.leave_type && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            {LEAVE_TYPE_LABELS[req.leave_type]}
+                          </p>
+                        )}
+                        {req.request_type === HrRequestType.LATE_EARLY && req.late_early_type && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            {LATE_EARLY_TYPE_LABELS[req.late_early_type]}
+                          </p>
+                        )}
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-sm text-gray-900">{formatDate(req.start_date)}</p>
-                    </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm text-gray-900">{formatDate(req.end_date)}</p>
-                    </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm text-gray-900">
-                          {req.total_days ? `${req.total_days} ngày` : 'N/A'}
-                        </p>
-                    </td>
+                        {req.request_type === HrRequestType.LEAVE && (
+                          <div className="text-sm text-gray-900">
+                            <p>Từ: {formatDate(req.start_date || '')}</p>
+                            <p>Đến: {formatDate(req.end_date || '')}</p>
+                            <p className="font-medium mt-1">
+                              {req.total_days ? `${req.total_days} ngày` : 'N/A'}
+                            </p>
+                          </div>
+                        )}
+                        {req.request_type === HrRequestType.OVERTIME && (
+                          <div className="text-sm text-gray-900">
+                            <p>Ngày: {formatDate(req.overtime_date || '')}</p>
+                            <p>Giờ: {req.start_time} - {req.end_time}</p>
+                            <p className="font-medium mt-1">
+                              {req.overtime_hours ? `${req.overtime_hours} giờ` : 'N/A'}
+                            </p>
+                          </div>
+                        )}
+                        {req.request_type === HrRequestType.LATE_EARLY && (
+                          <div className="text-sm text-gray-900">
+                            <p>Ngày: {formatDate(req.late_early_date || '')}</p>
+                            {req.actual_time && <p>Giờ thực tế: {req.actual_time}</p>}
+                            {req.minutes && <p className="font-medium mt-1">{req.minutes} phút</p>}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-6 py-4">
                         {getStatusBadge(req.status)}
                       </td>
@@ -604,7 +802,7 @@ export default function RequestsPage() {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          {req.status === LeaveStatus.PENDING && (
+                          {req.status === HrRequestStatus.PENDING && (
                             <>
                               {canManage && (
                                 <>
@@ -736,7 +934,7 @@ export default function RequestsPage() {
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">
-                {modalMode === 'create' && 'Tạo yêu cầu nghỉ phép'}
+                {modalMode === 'create' && 'Tạo yêu cầu'}
                 {modalMode === 'edit' && 'Chỉnh sửa yêu cầu'}
                 {modalMode === 'view' && 'Chi tiết yêu cầu'}
               </h2>
@@ -757,10 +955,39 @@ export default function RequestsPage() {
             {modalMode === 'view' && selectedRequest ? (
               <div className="p-6 space-y-4">
                 <DetailField label="Nhân viên" value={selectedRequest.employee?.full_name || 'N/A'} />
-                <DetailField label="Loại nghỉ phép" value={LEAVE_TYPE_LABELS[selectedRequest.type] || selectedRequest.type} />
-                <DetailField label="Từ ngày" value={formatDate(selectedRequest.start_date)} />
-                <DetailField label="Đến ngày" value={formatDate(selectedRequest.end_date)} />
-                <DetailField label="Số ngày" value={selectedRequest.total_days ? `${selectedRequest.total_days} ngày` : 'N/A'} />
+                <DetailField label="Loại yêu cầu" value={HR_REQUEST_TYPE_LABELS[selectedRequest.request_type]} />
+                
+                {selectedRequest.request_type === HrRequestType.LEAVE && (
+                  <>
+                    <DetailField label="Loại nghỉ phép" value={selectedRequest.leave_type ? LEAVE_TYPE_LABELS[selectedRequest.leave_type] : 'N/A'} />
+                    <DetailField label="Từ ngày" value={formatDate(selectedRequest.start_date || '')} />
+                    <DetailField label="Đến ngày" value={formatDate(selectedRequest.end_date || '')} />
+                    <DetailField label="Số ngày" value={selectedRequest.total_days ? `${selectedRequest.total_days} ngày` : 'N/A'} />
+                  </>
+                )}
+                
+                {selectedRequest.request_type === HrRequestType.OVERTIME && (
+                  <>
+                    <DetailField label="Ngày làm thêm" value={formatDate(selectedRequest.overtime_date || '')} />
+                    <DetailField label="Giờ bắt đầu" value={selectedRequest.start_time || 'N/A'} />
+                    <DetailField label="Giờ kết thúc" value={selectedRequest.end_time || 'N/A'} />
+                    <DetailField label="Số giờ" value={selectedRequest.overtime_hours ? `${selectedRequest.overtime_hours} giờ` : 'N/A'} />
+                  </>
+                )}
+                
+                {selectedRequest.request_type === HrRequestType.LATE_EARLY && (
+                  <>
+                    <DetailField label="Loại" value={selectedRequest.late_early_type ? LATE_EARLY_TYPE_LABELS[selectedRequest.late_early_type] : 'N/A'} />
+                    <DetailField label="Ngày" value={formatDate(selectedRequest.late_early_date || '')} />
+                    {selectedRequest.actual_time && (
+                      <DetailField label="Giờ thực tế" value={selectedRequest.actual_time} />
+                    )}
+                    {selectedRequest.minutes && (
+                      <DetailField label="Số phút" value={`${selectedRequest.minutes} phút`} />
+                    )}
+                  </>
+                )}
+                
                 <DetailField label="Lý do" value={selectedRequest.reason || 'N/A'} />
                       <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase">Trạng thái</p>
@@ -786,125 +1013,270 @@ export default function RequestsPage() {
             </div>
             ) : (
               <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Loại nghỉ phép <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={formData.type}
-                    onChange={(e) => handleFormChange('type', e.target.value as LeaveType)}
-                    required
-                    disabled={formSubmitting}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
-                  >
-                    {Object.entries(LEAVE_TYPE_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {/* Request Type Selection - Only when creating */}
+                {modalMode === 'create' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Loại yêu cầu <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={selectedRequestType}
+                      onChange={(e) => setSelectedRequestType(e.target.value as HrRequestType)}
+                      required
+                      disabled={formSubmitting}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
+                    >
+                      {Object.entries(HR_REQUEST_TYPE_LABELS).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
-                {/* Leave Balance Info - Only for ANNUAL type */}
-                {formData.type === LeaveType.ANNUAL && isEmployee && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    {balanceLoading ? (
-                      <div className="flex items-center gap-2 text-blue-700">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span className="text-sm">Đang tải thông tin phép...</span>
-                      </div>
-                    ) : leaveBalance ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-blue-900">Số ngày phép năm {leaveBalance.year}:</span>
-                          <span className="text-sm font-bold text-blue-700">
-                            {leaveBalance.remaining} / {leaveBalance.limit} ngày còn lại
-                          </span>
-                        </div>
-                        <div className="text-xs text-blue-600">
-                          Đã dùng: {leaveBalance.used} ngày
-                        </div>
-                        {formData.total_days && formData.total_days > leaveBalance.remaining && (
-                          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-                            ⚠️ Cảnh báo: Yêu cầu {formData.total_days} ngày vượt quá số ngày phép còn lại ({leaveBalance.remaining} ngày)!
+                {/* Leave Request Form */}
+                {selectedRequestType === HrRequestType.LEAVE && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Loại nghỉ phép <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={leaveFormData.leave_type}
+                        onChange={(e) => handleLeaveFormChange('leave_type', e.target.value as LeaveType)}
+                        required
+                        disabled={formSubmitting}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
+                      >
+                        {Object.entries(LEAVE_TYPE_LABELS).map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Leave Balance Info - Only for ANNUAL type */}
+                    {leaveFormData.leave_type === LeaveType.ANNUAL && isEmployee && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        {balanceLoading ? (
+                          <div className="flex items-center gap-2 text-blue-700">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span className="text-sm">Đang tải thông tin phép...</span>
+                          </div>
+                        ) : leaveBalance ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-blue-900">Số ngày phép năm {leaveBalance.year}:</span>
+                              <span className="text-sm font-bold text-blue-700">
+                                {leaveBalance.remaining} / {leaveBalance.limit} ngày còn lại
+                              </span>
+                            </div>
+                            <div className="text-xs text-blue-600">
+                              Đã dùng: {leaveBalance.used} ngày
+                            </div>
+                            {(() => {
+                              const totalDays = leaveFormData.start_date && leaveFormData.end_date 
+                                ? calculateDays(leaveFormData.start_date, leaveFormData.end_date) 
+                                : 0;
+                              return totalDays > leaveBalance.remaining && (
+                                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                                  ⚠️ Cảnh báo: Yêu cầu {totalDays} ngày vượt quá số ngày phép còn lại ({leaveBalance.remaining} ngày)!
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-blue-700">
+                            Không thể tải thông tin phép
                           </div>
                         )}
                       </div>
-                    ) : (
-                      <div className="text-sm text-blue-700">
-                        Không thể tải thông tin phép
-                      </div>
                     )}
-                  </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Từ ngày <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="date"
+                          value={leaveFormData.start_date}
+                          onChange={(e) => handleLeaveFormChange('start_date', e.target.value)}
+                          required
+                          disabled={formSubmitting}
+                          min={typeof window !== 'undefined' ? new Date(Date.now() + 86400000).toISOString().split('T')[0] : undefined}
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Đến ngày <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="date"
+                          value={leaveFormData.end_date}
+                          onChange={(e) => handleLeaveFormChange('end_date', e.target.value)}
+                          required
+                          disabled={formSubmitting}
+                          min={leaveFormData.start_date || (typeof window !== 'undefined' ? new Date(Date.now() + 86400000).toISOString().split('T')[0] : undefined)}
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Số ngày
+                        {leaveFormData.start_date && leaveFormData.end_date && (
+                          <span className="ml-2 text-xs text-gray-500 font-normal">
+                            (Tự động tính: {calculateDays(leaveFormData.start_date, leaveFormData.end_date)} ngày)
+                          </span>
+                        )}
+                      </label>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Số ngày sẽ tự động tính khi bạn chọn từ ngày và đến ngày
+                      </p>
+                    </div>
+                  </>
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* Overtime Request Form */}
+                {selectedRequestType === HrRequestType.OVERTIME && (
+                  <>
                     <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Từ ngày <span className="text-red-500">*</span>
-                    </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Ngày làm thêm <span className="text-red-500">*</span>
+                      </label>
                       <input
-                      type="date"
-                      value={formData.start_date}
-                      onChange={(e) => handleFormChange('start_date', e.target.value)}
-                      required
-                      disabled={formSubmitting}
-                      min={typeof window !== 'undefined' ? new Date(Date.now() + 86400000).toISOString().split('T')[0] : undefined}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
+                        type="date"
+                        value={overtimeFormData.date}
+                        onChange={(e) => handleOvertimeFormChange('date', e.target.value)}
+                        required
+                        disabled={formSubmitting}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
                       />
                     </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Đến ngày <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.end_date}
-                      onChange={(e) => handleFormChange('end_date', e.target.value)}
-                      required
-                      disabled={formSubmitting}
-                      min={formData.start_date || (typeof window !== 'undefined' ? new Date(Date.now() + 86400000).toISOString().split('T')[0] : undefined)}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
-                    />
-                  </div>
-                </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Giờ bắt đầu <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="time"
+                          value={overtimeFormData.start_time}
+                          onChange={(e) => handleOvertimeFormChange('start_time', e.target.value)}
+                          required
+                          disabled={formSubmitting}
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Giờ kết thúc <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="time"
+                          value={overtimeFormData.end_time}
+                          onChange={(e) => handleOvertimeFormChange('end_time', e.target.value)}
+                          required
+                          disabled={formSubmitting}
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
 
+                {/* Late/Early Request Form */}
+                {selectedRequestType === HrRequestType.LATE_EARLY && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Loại <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={lateEarlyFormData.type}
+                        onChange={(e) => handleLateEarlyFormChange('type', e.target.value as LateEarlyType)}
+                        required
+                        disabled={formSubmitting}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
+                      >
+                        {Object.entries(LATE_EARLY_TYPE_LABELS).map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Ngày <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={lateEarlyFormData.date}
+                        onChange={(e) => handleLateEarlyFormChange('date', e.target.value)}
+                        required
+                        disabled={formSubmitting}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Giờ thực tế
+                        </label>
+                        <input
+                          type="time"
+                          value={lateEarlyFormData.actual_time}
+                          onChange={(e) => handleLateEarlyFormChange('actual_time', e.target.value)}
+                          disabled={formSubmitting}
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Số phút
+                        </label>
+                        <input
+                          type="number"
+                          value={lateEarlyFormData.minutes || ''}
+                          onChange={(e) => handleLateEarlyFormChange('minutes', e.target.value ? parseInt(e.target.value) : undefined)}
+                          disabled={formSubmitting}
+                          min="0"
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Common Reason Field */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Số ngày
-                    {formData.start_date && formData.end_date && (
-                      <span className="ml-2 text-xs text-gray-500 font-normal">
-                        (Tự động tính: {calculateDays(formData.start_date, formData.end_date)} ngày)
-                      </span>
-                    )}
+                    Lý do
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    value={formData.total_days || ''}
-                    onChange={(e) => handleFormChange('total_days', e.target.value ? Number(e.target.value) : undefined)}
-                    disabled={formSubmitting}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100 bg-gray-50"
-                    placeholder="Tự động tính từ ngày bắt đầu và kết thúc"
-                    readOnly={!!(formData.start_date && formData.end_date)}
-                  />
-                  {formData.start_date && formData.end_date && (
-                    <p className="mt-1 text-xs text-gray-500">
-                      Số ngày sẽ tự động tính khi bạn chọn từ ngày và đến ngày
-                    </p>
-                )}
-              </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Lý do</label>
                   <textarea
-                    value={formData.reason}
-                    onChange={(e) => handleFormChange('reason', e.target.value)}
+                    value={
+                      selectedRequestType === HrRequestType.LEAVE ? leaveFormData.reason || '' :
+                      selectedRequestType === HrRequestType.OVERTIME ? overtimeFormData.reason || '' :
+                      lateEarlyFormData.reason || ''
+                    }
+                    onChange={(e) => {
+                      if (selectedRequestType === HrRequestType.LEAVE) {
+                        handleLeaveFormChange('reason', e.target.value);
+                      } else if (selectedRequestType === HrRequestType.OVERTIME) {
+                        handleOvertimeFormChange('reason', e.target.value);
+                      } else {
+                        handleLateEarlyFormChange('reason', e.target.value);
+                      }
+                    }}
+                    placeholder="Nhập lý do..."
                     disabled={formSubmitting}
-                    rows={4}
+                    rows={3}
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
-                    placeholder="Nhập lý do nghỉ phép..."
                   />
                 </div>
 

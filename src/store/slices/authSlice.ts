@@ -44,8 +44,16 @@ const authSlice = createSlice({
         state.userRoles = getUserRoles(user);
       }
     },
+    // Cập nhật thông tin user (dùng khi update profile)
+    updateUser: (state, action: PayloadAction<{ user: Partial<User> }>) => {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload.user };
+        // Cập nhật localStorage
+        storage.setUser(state.user);
+      }
+    },
   },
 });
 
-export const { setCredentials, logout, restoreAuth } = authSlice.actions;
+export const { setCredentials, logout, restoreAuth, updateUser } = authSlice.actions;
 export default authSlice.reducer;

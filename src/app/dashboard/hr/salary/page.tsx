@@ -16,6 +16,9 @@ export default function SalaryPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [calculating, setCalculating] = useState(false);
   const [selectedSalary, setSelectedSalary] = useState<EmployeeSalary | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, action: '' });
 
   useEffect(() => {
     loadEmployees();
@@ -42,6 +45,17 @@ export default function SalaryPage() {
       setLoading(true);
       const data = await salaryCalculationService.getSalariesByMonth(selectedYear, selectedMonth);
       setSalaries(data);
+      
+      // Tự động bỏ chọn các bản ghi đã được duyệt
+      setSelectedIds(prev => {
+        const newSelected = new Set(prev);
+        data.forEach(salary => {
+          if (salary.status !== SalaryStatus.PENDING) {
+            newSelected.delete(salary.id);
+          }
+        });
+        return newSelected;
+      });
     } catch (err: any) {
       console.error('Error loading salaries:', err);
       setSalaries([]);
@@ -87,6 +101,111 @@ export default function SalaryPage() {
     }
   };
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      // Chỉ chọn những bản ghi có status PENDING
+      const pendingSalaries = salaries.filter(s => s.status === SalaryStatus.PENDING);
+      setSelectedIds(new Set(pendingSalaries.map(s => s.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleSelectOne = (id: number, checked: boolean) => {
+    // Chỉ cho phép chọn những bản ghi có status PENDING
+    const salary = salaries.find(s => s.id === id);
+    if (salary && salary.status !== SalaryStatus.PENDING) {
+      return; // Không cho phép chọn bản ghi đã được duyệt
+    }
+
+    const newSelected = new Set(selectedIds);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const bulkApprove = async () => {
+    if (selectedIds.size === 0) {
+      notificationApi.warning({
+        message: 'Cảnh báo',
+        description: 'Vui lòng chọn ít nhất một bản ghi',
+      });
+      return;
+    }
+
+    setBulkProcessing(true);
+    const ids = Array.from(selectedIds);
+    setBulkProgress({ current: 0, total: ids.length, action: 'Đang duyệt lương' });
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < ids.length; i++) {
+      try {
+        await salaryCalculationService.approve(ids[i]);
+        successCount++;
+      } catch (err: any) {
+        failCount++;
+        console.error(`Failed to approve salary ${ids[i]}:`, err);
+      }
+      setBulkProgress({ current: i + 1, total: ids.length, action: 'Đang duyệt lương' });
+    }
+
+    setBulkProcessing(false);
+    setSelectedIds(new Set());
+    setBulkProgress({ current: 0, total: 0, action: '' });
+
+    if (failCount === 0) {
+      notificationApi.success({
+        message: 'Thành công',
+        description: `Đã duyệt thành công ${successCount} bản ghi`,
+      });
+    } else {
+      notificationApi.warning({
+        message: 'Hoàn thành',
+        description: `Đã duyệt thành công ${successCount} bản ghi, thất bại ${failCount} bản ghi`,
+      });
+    }
+
+    loadSalaries();
+  };
+
+  const approveAll = async () => {
+    try {
+      setBulkProcessing(true);
+      setBulkProgress({ current: 0, total: 1, action: 'Đang duyệt tất cả lương trong tháng' });
+      
+      const result = await salaryCalculationService.approveAll(selectedYear, selectedMonth);
+      
+      setBulkProcessing(false);
+      setBulkProgress({ current: 0, total: 0, action: '' });
+
+      if (result.failed === 0) {
+        notificationApi.success({
+          message: 'Thành công',
+          description: `Đã duyệt thành công ${result.approved} bản ghi`,
+        });
+      } else {
+        notificationApi.warning({
+          message: 'Hoàn thành',
+          description: `Đã duyệt thành công ${result.approved} bản ghi, thất bại ${result.failed} bản ghi`,
+        });
+      }
+
+      loadSalaries();
+    } catch (err: any) {
+      setBulkProcessing(false);
+      setBulkProgress({ current: 0, total: 0, action: '' });
+      notificationApi.error({
+        message: 'Lỗi',
+        description: err.message || 'Không thể duyệt lương',
+      });
+    }
+  };
+
   const getStatusBadge = (status: SalaryStatus) => {
     switch (status) {
       case SalaryStatus.PENDING:
@@ -120,8 +239,8 @@ export default function SalaryPage() {
     }
   };
 
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null || amount === undefined) return '0';
+  const formatCurrency = (amount: number | null | undefined) => {
+    if (amount === null || amount === undefined || isNaN(amount)) return '0';
     return new Intl.NumberFormat('vi-VN').format(amount);
   };
 
@@ -145,6 +264,55 @@ export default function SalaryPage() {
         </div>
       </div>
 
+      {/* Filters and Auto Calculation Info */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Năm
+            </label>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tháng
+            </label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                <option key={month} value={month}>
+                  Tháng {month}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-end">
+            <div className="w-full px-6 py-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-2 text-blue-700">
+                <Calendar className="w-5 h-5" />
+                <div>
+                  <p className="text-sm font-medium">Tính lương tự động</p>
+                  <p className="text-xs text-blue-600">Hệ thống sẽ tự động tính lương vào cuối mỗi tháng</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -152,7 +320,18 @@ export default function SalaryPage() {
             <div>
               <p className="text-sm text-gray-600">Tổng lương tháng</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">
-                {formatCurrency(salaries.reduce((sum, s) => sum + (s.total_salary || 0), 0))} VNĐ
+                {formatCurrency(salaries.reduce((sum, s) => {
+                  // Handle null, undefined, string, or number
+                  let value = s.total_salary;
+                  if (value === null || value === undefined) {
+                    value = 0;
+                  } else if (typeof value === 'string') {
+                    value = parseFloat(value) || 0;
+                  } else {
+                    value = Number(value) || 0;
+                  }
+                  return sum + (isNaN(value) ? 0 : value);
+                }, 0))} VNĐ
               </p>
             </div>
             <div className="bg-blue-100 rounded-full p-3">
@@ -176,7 +355,17 @@ export default function SalaryPage() {
             <div>
               <p className="text-sm text-gray-600">Tổng lương OT</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">
-                {formatCurrency(salaries.reduce((sum, s) => sum + (s.overtime_salary || 0), 0))} VNĐ
+                {formatCurrency(salaries.reduce((sum, s) => {
+                  let value = s.overtime_salary;
+                  if (value === null || value === undefined) {
+                    value = 0;
+                  } else if (typeof value === 'string') {
+                    value = parseFloat(value) || 0;
+                  } else {
+                    value = Number(value) || 0;
+                  }
+                  return sum + (isNaN(value) ? 0 : value);
+                }, 0))} VNĐ
               </p>
             </div>
             <div className="bg-orange-100 rounded-full p-3">
@@ -189,7 +378,17 @@ export default function SalaryPage() {
             <div>
               <p className="text-sm text-gray-600">Tổng bảo hiểm</p>
               <p className="text-2xl font-bold text-red-600 mt-1">
-                {formatCurrency(salaries.reduce((sum, s) => sum + (s.insurance || 0), 0))} VNĐ
+                {formatCurrency(salaries.reduce((sum, s) => {
+                  let value = s.insurance;
+                  if (value === null || value === undefined) {
+                    value = 0;
+                  } else if (typeof value === 'string') {
+                    value = parseFloat(value) || 0;
+                  } else {
+                    value = Number(value) || 0;
+                  }
+                  return sum + (isNaN(value) ? 0 : value);
+                }, 0))} VNĐ
               </p>
             </div>
             <div className="bg-red-100 rounded-full p-3">
@@ -230,10 +429,34 @@ export default function SalaryPage() {
             </div>
             {(() => {
               const breakdownData = [
-                { name: 'Lương cơ bản', value: salaries.reduce((sum, s) => sum + Number(s.base_salary || 0), 0) },
-                { name: 'Lương OT', value: salaries.reduce((sum, s) => sum + Number(s.overtime_salary || 0), 0) },
-                { name: 'Phụ cấp', value: salaries.reduce((sum, s) => sum + Number(s.allowance || 0), 0) },
-                { name: 'Thưởng', value: salaries.reduce((sum, s) => sum + Number(s.bonus || 0), 0) },
+                { 
+                  name: 'Lương cơ bản', 
+                  value: salaries.reduce((sum, s) => {
+                    const value = s.base_salary ?? 0;
+                    return sum + (isNaN(value) ? 0 : Number(value));
+                  }, 0) 
+                },
+                { 
+                  name: 'Lương OT', 
+                  value: salaries.reduce((sum, s) => {
+                    const value = s.overtime_salary ?? 0;
+                    return sum + (isNaN(value) ? 0 : Number(value));
+                  }, 0) 
+                },
+                { 
+                  name: 'Phụ cấp', 
+                  value: salaries.reduce((sum, s) => {
+                    const value = s.allowance ?? 0;
+                    return sum + (isNaN(value) ? 0 : Number(value));
+                  }, 0) 
+                },
+                { 
+                  name: 'Thưởng', 
+                  value: salaries.reduce((sum, s) => {
+                    const value = s.bonus ?? 0;
+                    return sum + (isNaN(value) ? 0 : Number(value));
+                  }, 0) 
+                },
               ].filter((item) => item.value > 0);
 
               if (breakdownData.length === 0) {
@@ -271,59 +494,71 @@ export default function SalaryPage() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Năm
-            </label>
-            <input
-              type="number"
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tháng
-            </label>
-            <input
-              type="number"
-              min="1"
-              max="12"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          <div className="flex items-end">
-            <button
-              onClick={calculateSalary}
-              disabled={calculating}
-              className="w-full px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {calculating ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Calculator className="w-5 h-5" />
-              )}
-              Tính lương cho tất cả nhân viên
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Salary List */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-gray-900">
             Bảng lương tháng {selectedMonth}/{selectedYear}
           </h2>
           <span className="text-sm text-gray-600">
             Tổng: {salaries.length} nhân viên
           </span>
+          </div>
+          
+          {/* Bulk Actions */}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-3 mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <span className="text-sm font-medium text-blue-900">
+                Đã chọn: {selectedIds.size} bản ghi
+              </span>
+              <button
+                onClick={bulkApprove}
+                disabled={bulkProcessing}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+              >
+                Duyệt đã chọn
+              </button>
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium"
+              >
+                Bỏ chọn
+              </button>
+            </div>
+          )}
+
+          {/* Approve All Button */}
+          {salaries.some(s => s.status === SalaryStatus.PENDING) && (
+            <div className="mb-4">
+              <button
+                onClick={approveAll}
+                disabled={bulkProcessing}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex items-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                Duyệt tất cả lương trong tháng
+              </button>
+            </div>
+          )}
+
+          {/* Progress Bar */}
+          {bulkProcessing && bulkProgress.total > 0 && (
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">{bulkProgress.action}</span>
+                <span className="text-sm text-gray-600">
+                  {bulkProgress.current} / {bulkProgress.total}
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div
+                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                  style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
         </div>
         
         {loading ? (
@@ -340,6 +575,17 @@ export default function SalaryPage() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                    <input
+                      type="checkbox"
+                      checked={(() => {
+                        const pendingSalaries = salaries.filter(s => s.status === SalaryStatus.PENDING);
+                        return pendingSalaries.length > 0 && pendingSalaries.every(s => selectedIds.has(s.id));
+                      })()}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Nhân viên
                   </th>
@@ -372,6 +618,15 @@ export default function SalaryPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {salaries.map((salary) => (
                   <tr key={salary.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(salary.id)}
+                        onChange={(e) => handleSelectOne(salary.id, e.target.checked)}
+                        disabled={salary.status !== SalaryStatus.PENDING}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {salary.employee?.full_name || `ID: ${salary.employee_id}`}
                       <br />

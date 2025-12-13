@@ -305,7 +305,11 @@ export default function AssetAssignmentPage() {
                         <td className="px-6 py-4 font-semibold text-gray-900">{assignment.asset.asset_name}</td>
                         <td className="px-6 py-4 font-semibold text-gray-900">{assignment.employee.full_name}</td>
                         <td className="px-6 py-4 text-gray-700 font-medium">
-                          {(assignment.employee as any).department_relation?.name || assignment.employee.department || 'Chưa xác định'}
+                          {(() => {
+                            const currentPositions = assignment.employee.employee_positions?.filter(ep => ep.is_current) || [];
+                            const primaryPosition = currentPositions[0];
+                            return primaryPosition?.department?.name || (assignment.employee as any).department_relation?.name || 'Chưa xác định';
+                          })()}
                         </td>
                         <td className="px-6 py-4 text-gray-700">{assignment.assignment_date}</td>
                         {currentView === 'history' && (
@@ -388,11 +392,16 @@ export default function AssetAssignmentPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
             >
               <option value={0}>Chọn nhân viên</option>
-              {employees.map(emp => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.employee_code} - {emp.full_name} ({emp.department || 'N/A'})
-                </option>
-              ))}
+              {employees.map(emp => {
+                const currentPositions = emp.employee_positions?.filter(ep => ep.is_current) || [];
+                const primaryPosition = currentPositions[0];
+                const deptName = primaryPosition?.department?.name || (emp as any).department_relation?.name || 'N/A';
+                return (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.employee_code} - {emp.full_name} ({deptName})
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -450,8 +459,20 @@ export default function AssetAssignmentPage() {
               <div className="space-y-4 text-lg">
                 <div className="flex justify-between"><span className="font-bold text-gray-700">Mã NV:</span> <span className="font-black text-gray-900">{selectedAssignment.employee.employee_code}</span></div>
                 <div className="flex justify-between"><span className="font-bold text-gray-700">Họ tên:</span> <span className="font-black text-gray-900">{selectedAssignment.employee.full_name}</span></div>
-                <div className="flex justify-between"><span className="font-bold text-gray-700">Phòng ban:</span> <span className="font-black text-gray-900">{(selectedAssignment.employee as any).department_relation?.name || selectedAssignment.employee.department || 'N/A'}</span></div>
-                <div className="flex justify-between"><span className="font-bold text-gray-700">Chức vụ:</span> <span className="font-black text-gray-900">{selectedAssignment.employee.position || 'N/A'}</span></div>
+                <div className="flex justify-between"><span className="font-bold text-gray-700">Phòng ban:</span> <span className="font-black text-gray-900">
+                  {(() => {
+                    const currentPositions = selectedAssignment.employee.employee_positions?.filter(ep => ep.is_current) || [];
+                    const primaryPosition = currentPositions[0];
+                    return primaryPosition?.department?.name || (selectedAssignment.employee as any).department_relation?.name || 'N/A';
+                  })()}
+                </span></div>
+                <div className="flex justify-between"><span className="font-bold text-gray-700">Chức vụ:</span> <span className="font-black text-gray-900">
+                  {(() => {
+                    const currentPositions = selectedAssignment.employee.employee_positions?.filter(ep => ep.is_current) || [];
+                    const primaryPosition = currentPositions[0];
+                    return primaryPosition?.position?.title || 'N/A';
+                  })()}
+                </span></div>
               </div>
             </div>
 
