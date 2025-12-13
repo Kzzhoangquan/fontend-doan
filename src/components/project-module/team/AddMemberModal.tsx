@@ -192,23 +192,46 @@ export const AddMemberModal: React.FC<AddMemberModalProps> = ({
                                             placeholder={t('team.addModal.employeePlaceholder')}
                                             showSearch
                                             optionFilterProp="children"
-                                            filterOption={(input, option: any) =>
-                                                option.children.toLowerCase().includes(input.toLowerCase())
-                                            }
+                                            filterOption={(input, option: any) => {
+                                                const emp = nonMembers.find(e => e.id === option.value);
+                                                return emp ? 
+                                                    emp.full_name.toLowerCase().includes(input.toLowerCase()) ||
+                                                    emp.email.toLowerCase().includes(input.toLowerCase())
+                                                    : false;
+                                            }}
+                                            optionLabelProp="label"
                                         >
                                             {nonMembers.map((emp) => (
-                                                <Option key={emp.id} value={emp.id}>
-                                                    <Space>
+                                                <Option 
+                                                    key={emp.id} 
+                                                    value={emp.id}
+                                                    label={emp.full_name}
+                                                >
+                                                    <div style={{ 
+                                                        display: 'flex', 
+                                                        alignItems: 'center',
+                                                        gap: 8,
+                                                        padding: '4px 0'
+                                                    }}>
                                                         <Avatar size="small" icon={<UserOutlined />}>
                                                             {emp.full_name[0]}
                                                         </Avatar>
-                                                        <div>
-                                                            <div>{emp.full_name}</div>
-                                                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ 
+                                                                fontWeight: 500,
+                                                                lineHeight: '20px'
+                                                            }}>
+                                                                {emp.full_name}
+                                                            </div>
+                                                            <div style={{ 
+                                                                fontSize: 12,
+                                                                color: '#8c8c8c',
+                                                                lineHeight: '18px'
+                                                            }}>
                                                                 {emp.email}
-                                                            </Text>
+                                                            </div>
                                                         </div>
-                                                    </Space>
+                                                    </div>
                                                 </Option>
                                             ))}
                                         </Select>
@@ -220,20 +243,40 @@ export const AddMemberModal: React.FC<AddMemberModalProps> = ({
                                         label={t('team.addModal.role')}
                                         rules={[{ required: true, message: t('team.addModal.roleRequired') }]}
                                     >
-                                        <Select placeholder={t('team.addModal.rolePlaceholder')}>
+                                        <Select 
+                                            placeholder={t('team.addModal.rolePlaceholder')}
+                                            optionLabelProp="label"
+                                        >
                                             {roles.map((role) => (
-                                                <Option key={role.id} value={role.id}>
-                                                    <Space direction="vertical" size={0}>
+                                                <Option 
+                                                    key={role.id} 
+                                                    value={role.id}
+                                                    label={
                                                         <Space>
                                                             <Tag color={getRoleBadgeColor(role.role_name)}>
                                                                 {role.role_name}
                                                             </Tag>
                                                             {role.is_default && <Tag color="green">{t('team.addModal.default')}</Tag>}
                                                         </Space>
-                                                        <Text type="secondary" style={{ fontSize: 12 }}>
+                                                    }
+                                                >
+                                                    <div style={{ padding: '4px 0' }}>
+                                                        <div style={{ marginBottom: 4 }}>
+                                                            <Space>
+                                                                <Tag color={getRoleBadgeColor(role.role_name)}>
+                                                                    {role.role_name}
+                                                                </Tag>
+                                                                {role.is_default && <Tag color="green">{t('team.addModal.default')}</Tag>}
+                                                            </Space>
+                                                        </div>
+                                                        <div style={{ 
+                                                            fontSize: 12,
+                                                            color: '#8c8c8c',
+                                                            lineHeight: '18px'
+                                                        }}>
                                                             {role.role_description}
-                                                        </Text>
-                                                    </Space>
+                                                        </div>
+                                                    </div>
                                                 </Option>
                                             ))}
                                         </Select>
@@ -269,15 +312,34 @@ export const AddMemberModal: React.FC<AddMemberModalProps> = ({
                                             style={{ width: '100%', marginTop: 8 }}
                                             value={selectedRole}
                                             onChange={setSelectedRole}
+                                            optionLabelProp="label"
                                         >
                                             {roles.map((role) => (
-                                                <Option key={role.id} value={role.id}>
-                                                    <Space>
-                                                        <Tag color={getRoleBadgeColor(role.role_name)}>
-                                                            {role.role_name}
-                                                        </Tag>
-                                                        <Text>{role.role_description}</Text>
-                                                    </Space>
+                                                <Option 
+                                                    key={role.id} 
+                                                    value={role.id}
+                                                    label={
+                                                        <Space>
+                                                            <Tag color={getRoleBadgeColor(role.role_name)}>
+                                                                {role.role_name}
+                                                            </Tag>
+                                                        </Space>
+                                                    }
+                                                >
+                                                    <div style={{ padding: '4px 0' }}>
+                                                        <div style={{ marginBottom: 4 }}>
+                                                            <Tag color={getRoleBadgeColor(role.role_name)}>
+                                                                {role.role_name}
+                                                            </Tag>
+                                                        </div>
+                                                        <div style={{ 
+                                                            fontSize: 12,
+                                                            color: '#8c8c8c',
+                                                            lineHeight: '18px'
+                                                        }}>
+                                                            {role.role_description}
+                                                        </div>
+                                                    </div>
                                                 </Option>
                                             ))}
                                         </Select>

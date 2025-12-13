@@ -265,5 +265,34 @@
       "loadFailed": "Không thể tải danh sách watchers",
       "loadEmployeesFailed": "Không thể tải danh sách nhân viên"
     }
+  },
+  "workflowStatus": {
+    "createStatus": "Tạo Trạng thái",
+    "addStatus": "Thêm Cột",
+    "form": {
+      "statusName": "Tên Trạng thái",
+      "statusNamePlaceholder": "Nhập tên trạng thái (vd: Đang xem xét)",
+      "statusNameRequired": "Vui lòng nhập tên trạng thái",
+      "statusNameMax": "Tên trạng thái không được quá 100 ký tự",
+      "statusCategory": "Danh mục Trạng thái",
+      "statusCategoryPlaceholder": "Chọn danh mục trạng thái",
+      "statusCategoryRequired": "Vui lòng chọn danh mục trạng thái",
+      "isInitialStatus": "Đặt làm Trạng thái Ban đầu",
+      "isInitialStatusTooltip": "Nhiệm vụ sẽ bắt đầu với trạng thái này khi được tạo"
+    },
+    "messages": {
+      "createSuccess": "Đã tạo trạng thái thành công",
+      "createFailed": "Tạo trạng thái thất bại",
+      "updateSuccess": "Đã cập nhật trạng thái thành công",
+      "updateFailed": "Cập nhật trạng thái thất bại",
+      "deleteSuccess": "Đã xóa trạng thái thành công",
+      "deleteFailed": "Xóa trạng thái thất bại"
+    }
+  },
+  "common": {
+    "create": "Tạo",
+    "cancel": "Hủy",
+    "update": "Cập nhật",
+    "delete": "Xóa"
   }
 }

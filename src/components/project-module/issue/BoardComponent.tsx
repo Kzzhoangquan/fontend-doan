@@ -12,7 +12,7 @@ import { monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/ad
 import { reorder } from '@atlaskit/pragmatic-drag-and-drop/reorder';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button, message, Space } from 'antd';
-import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { AppstoreAddOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
 import { type ColumnMap, type ColumnType, type Issue } from '@/components/project-module/issue/pragmatic-drag-and-drop/documentation/examples/data/people';
@@ -23,6 +23,7 @@ import { createRegistry } from '@/components/project-module/issue/pragmatic-drag
 import { CreateIssueModal } from '@/components/project-module/issue/CreateIssueModal';
 import { boardService } from '@/lib/api/services/project-module/board.service';
 import { BoardFilter, BoardFilterValues, useFilteredBoardData } from './BoardFilter';
+import { CreateWorkflowStatusModal } from './pragmatic-drag-and-drop/documentation/examples/pieces/board/CreateWorkflowStatusModal';
 
 type Outcome =
 	| {
@@ -68,6 +69,7 @@ export const BoardComponent: React.FC<BoardProps> = ({
 }) =>  {
 	const { t } = useTranslation();
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+	const [isCreateStatusModalOpen, setIsCreateStatusModalOpen] = useState(false);
 
 	const [data, setData] = useState<BoardState | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -79,10 +81,6 @@ export const BoardComponent: React.FC<BoardProps> = ({
 		issueTypeIds: [],
 		epicIds: [],
 	});
-
-	const pathname = usePathname();
-	const pathSegments = pathname.split('/');
-	const workflowId = pathSegments[pathSegments.length - 1];
 
 	const fetchBoardData = async () => {
 		try {
@@ -110,7 +108,7 @@ export const BoardComponent: React.FC<BoardProps> = ({
 
 	useEffect(() => {
 		fetchBoardData();
-	}, [workflowId]);
+	}, [boardId]);
 
 	const handleCreateIssue = (newIssue: any) => {
 		console.log('New issue created:', newIssue);
@@ -151,7 +149,7 @@ export const BoardComponent: React.FC<BoardProps> = ({
 					case 'column-reorder': {
 						console.log('[API CALL] Reordering columns...');
 						await boardService.reorderColumns(
-							parseInt(workflowId), 
+							boardId, 
 							{
 								orderedColumnIds: orderedColumnIds.map(id => parseInt(id))
 							}, 
@@ -218,7 +216,7 @@ export const BoardComponent: React.FC<BoardProps> = ({
 
 		syncWithBackend();
 
-	}, [data, workflowId, projectId, t]);
+	}, [data, boardId, projectId, t]);
 
 	useEffect(() => {
 		return liveRegion.cleanup();
@@ -392,7 +390,7 @@ export const BoardComponent: React.FC<BoardProps> = ({
 			try {
 				switch (outcome.type) {
 					case 'column-reorder': {
-						await boardService.reorderColumns(parseInt(workflowId), {
+						await boardService.reorderColumns(boardId, {
 							orderedColumnIds: orderedColumnIds.map(id => parseInt(id))
 						}, projectId);
 						console.log('[API SUCCESS] Columns reordered');
@@ -438,7 +436,7 @@ export const BoardComponent: React.FC<BoardProps> = ({
 
 		syncWithBackend();
 
-	}, [data, workflowId, t]);
+	}, [data, boardId, t]);
 
 	const [instanceId] = useState(() => Symbol('instance-id'));
 
@@ -576,6 +574,11 @@ export const BoardComponent: React.FC<BoardProps> = ({
 		};
 	}, [getColumns, reorderColumn, reorderCard, registry, moveCard, instanceId]);
 
+	const handleCreateStatus = () => {
+		// Refresh board data after creating new status
+		fetchBoardData();
+	};
+
 	if (loading) {
 		return <div>{t('issue.board.loadingData')}</div>;
 	}
@@ -600,6 +603,13 @@ export const BoardComponent: React.FC<BoardProps> = ({
 						{t('issue.board.createIssue')}
 					</Button>
 					<Button 
+						type="default"
+						icon={<AppstoreAddOutlined />}
+						onClick={() => setIsCreateStatusModalOpen(true)}
+					>
+						{t('workflowStatus.addStatus')}
+					</Button>
+					<Button 
 						icon={<ReloadOutlined />}
 						onClick={handleRefresh}
 						loading={loading}
@@ -618,7 +628,14 @@ export const BoardComponent: React.FC<BoardProps> = ({
 
 			<Board>
 				{displayData.orderedColumnIds.map((columnId: any) => {
-					return <Column column={displayData.columnMap[columnId]} key={columnId} />;
+					return (
+						<Column 
+							column={displayData.columnMap[columnId]} 
+							key={columnId}
+							projectId={projectId}
+							onRefresh={handleRefresh}
+						/>
+					);
 				})}
 			</Board>
 			
@@ -626,6 +643,13 @@ export const BoardComponent: React.FC<BoardProps> = ({
 				visible={isCreateModalOpen}
 				onClose={() => setIsCreateModalOpen(false)}
 				onSuccess={handleCreateIssue}
+				projectId={projectId}
+			/>
+			<CreateWorkflowStatusModal
+				visible={isCreateStatusModalOpen}
+				onClose={() => setIsCreateStatusModalOpen(false)}
+				onSuccess={handleCreateStatus}
+				workflowId={boardId}
 				projectId={projectId}
 			/>
 		</BoardContext.Provider>

@@ -266,5 +266,35 @@
       "loadFailed": "Cannot load watchers",
       "loadEmployeesFailed": "Cannot load employees"
     }
+  },
+
+  "workflowStatus": {
+    "createStatus": "Create Status",
+    "addStatus": "Add Column",
+    "form": {
+      "statusName": "Status Name",
+      "statusNamePlaceholder": "Enter status name (e.g., In Review)",
+      "statusNameRequired": "Please enter status name",
+      "statusNameMax": "Status name must not exceed 100 characters",
+      "statusCategory": "Status Category",
+      "statusCategoryPlaceholder": "Select status category",
+      "statusCategoryRequired": "Please select status category",
+      "isInitialStatus": "Set as Initial Status",
+      "isInitialStatusTooltip": "Issues will start with this status when created"
+    },
+    "messages": {
+      "createSuccess": "Status created successfully",
+      "createFailed": "Failed to create status",
+      "updateSuccess": "Status updated successfully",
+      "updateFailed": "Failed to update status",
+      "deleteSuccess": "Status deleted successfully",
+      "deleteFailed": "Failed to delete status"
+    }
+  },
+  "common": {
+    "create": "Create",
+    "cancel": "Cancel",
+    "update": "Update",
+    "delete": "Delete"
   }
 }

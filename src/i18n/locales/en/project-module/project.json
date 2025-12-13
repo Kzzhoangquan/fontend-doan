@@ -101,7 +101,7 @@
       
       "tabs": {
         "summary": "Summary",
-        "sprintBacklog": "Sprint Backlog",
+        "sprintBacklog": "Backlog",
         "board": "Board",
         "epics": "Epics",
         "team": "Team",
