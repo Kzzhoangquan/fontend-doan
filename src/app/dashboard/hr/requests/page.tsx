@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { notification } from 'antd';
-import { CheckSquare, Search, Plus, Edit, Trash2, Eye, Loader2, X, CheckCircle, XCircle, Clock, BarChart3, PieChart } from 'lucide-react';
+import { CheckSquare, Search, Plus, Edit, Trash2, Eye, Loader2, X, CheckCircle, XCircle, Clock, BarChart3, PieChart, LucideIcon } from 'lucide-react';
 import { PieChart as RechartsPieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { 
   hrRequestService,
@@ -141,14 +141,14 @@ export default function RequestsPage() {
   const fetchAllRequestsForStats = async () => {
     setStatsLoading(true);
     try {
-      const params: any = { pageSize: 1000 };
+      const params: { pageSize: number; employeeId?: number } = { pageSize: 1000 };
       if (isEmployee && user?.id) {
         params.employeeId = user.id;
       }
-      const data = await hrRequestService.getAll({ ...params });
+      const data = await hrRequestService.getAll(params);
       setAllRequests(data);
-    } catch (err: any) {
-      console.error('Error fetching all requests for stats:', err);
+    } catch (err) {
+      // Error fetching all requests for stats
     } finally {
       setStatsLoading(false);
     }
@@ -159,7 +159,7 @@ export default function RequestsPage() {
     setError('');
 
     try {
-      const params: any = {
+      const params: { page?: number; pageSize?: number; search?: string; status?: HrRequestStatus; request_type?: HrRequestType; startDate?: string; endDate?: string; employeeId?: number } = {
         page,
         pageSize,
       };
@@ -185,9 +185,9 @@ export default function RequestsPage() {
       setRequests(filteredData.slice(startIndex, endIndex));
       setTotal(filteredData.length);
       setTotalPages(Math.ceil(filteredData.length / pageSize));
-    } catch (err: any) {
-      console.error('Error fetching requests:', err);
-      setError(err.response?.data?.message || 'Không thể tải danh sách yêu cầu');
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể tải danh sách yêu cầu';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -212,9 +212,9 @@ export default function RequestsPage() {
       await hrRequestService.delete(id);
       fetchRequests();
       showNotification('success', 'Xóa yêu cầu thành công!');
-    } catch (err: any) {
-      console.error('Error deleting request:', err);
-      showNotification('error', 'Không thể xóa yêu cầu', err.response?.data?.message);
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể xóa yêu cầu';
+      showNotification('error', 'Không thể xóa yêu cầu', errorMessage);
     }
   };
 
@@ -224,8 +224,9 @@ export default function RequestsPage() {
       await hrRequestService.approve(id);
       showNotification('success', 'Phê duyệt yêu cầu thành công!');
       fetchRequests();
-    } catch (err: any) {
-      showNotification('error', 'Không thể phê duyệt yêu cầu', err.response?.data?.message);
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể phê duyệt yêu cầu';
+      showNotification('error', 'Không thể phê duyệt yêu cầu', errorMessage);
     } finally {
       setFormSubmitting(false);
     }
@@ -237,8 +238,9 @@ export default function RequestsPage() {
       await hrRequestService.reject(id);
       showNotification('success', 'Từ chối yêu cầu thành công!');
       fetchRequests();
-    } catch (err: any) {
-      showNotification('error', 'Không thể từ chối yêu cầu', err.response?.data?.message);
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể từ chối yêu cầu';
+      showNotification('error', 'Không thể từ chối yêu cầu', errorMessage);
     } finally {
       setFormSubmitting(false);
     }
@@ -252,8 +254,9 @@ export default function RequestsPage() {
       await hrRequestService.cancel(id);
       showNotification('success', 'Hủy yêu cầu thành công!');
       fetchRequests();
-    } catch (err: any) {
-      showNotification('error', 'Không thể hủy yêu cầu', err.response?.data?.message);
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể hủy yêu cầu';
+      showNotification('error', 'Không thể hủy yêu cầu', errorMessage);
     } finally {
       setFormSubmitting(false);
     }
@@ -292,16 +295,32 @@ export default function RequestsPage() {
       const request = await hrRequestService.getById(requestId);
       setSelectedRequest(request);
       if (request.request_type === HrRequestType.LEAVE) {
-        setFormData({
+        setLeaveFormData({
           leave_type: request.leave_type || LeaveType.ANNUAL,
           start_date: request.start_date || '',
           end_date: request.end_date || '',
           reason: request.reason || '',
         });
+      } else if (request.request_type === HrRequestType.OVERTIME) {
+        setOvertimeFormData({
+          date: request.overtime_date || '',
+          start_time: request.start_time || '',
+          end_time: request.end_time || '',
+          reason: request.reason || '',
+        });
+      } else if (request.request_type === HrRequestType.LATE_EARLY) {
+        setLateEarlyFormData({
+          date: request.late_early_date || '',
+          type: request.late_early_type || LateEarlyType.LATE,
+          actual_time: request.actual_time || '',
+          minutes: request.minutes || undefined,
+          reason: request.reason || '',
+        });
       }
       setModalMode('edit');
-    } catch (err: any) {
-      showNotification('error', 'Không thể tải chi tiết yêu cầu', err.response?.data?.message);
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể tải chi tiết yêu cầu';
+      showNotification('error', 'Không thể tải chi tiết yêu cầu', errorMessage);
     } finally {
       setFormSubmitting(false);
     }
@@ -314,8 +333,9 @@ export default function RequestsPage() {
       const request = await hrRequestService.getById(requestId);
       setSelectedRequest(request);
       setModalMode('view');
-    } catch (err: any) {
-      showNotification('error', 'Không thể tải chi tiết yêu cầu', err.response?.data?.message);
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể tải chi tiết yêu cầu';
+      showNotification('error', 'Không thể tải chi tiết yêu cầu', errorMessage);
     } finally {
       setFormSubmitting(false);
     }
@@ -365,8 +385,8 @@ export default function RequestsPage() {
         try {
           const balance = await hrRequestService.getLeaveBalance(user.id);
           setLeaveBalance(balance);
-        } catch (err: any) {
-          console.error('Error fetching leave balance:', err);
+        } catch (err) {
+          // Error fetching leave balance
           setLeaveBalance(null);
         } finally {
           setBalanceLoading(false);
@@ -394,7 +414,7 @@ export default function RequestsPage() {
     }));
   };
 
-  const handleLateEarlyFormChange = (field: keyof CreateLateEarlyRequestDto, value: string | number | LateEarlyType) => {
+  const handleLateEarlyFormChange = (field: keyof CreateLateEarlyRequestDto, value: string | number | LateEarlyType | undefined) => {
     setLateEarlyFormData(prev => ({
       ...prev,
       [field]: value,
@@ -431,8 +451,8 @@ export default function RequestsPage() {
                   setBalanceLoading(false);
                   return;
                 }
-              } catch (err: any) {
-                console.error('Error fetching leave balance:', err);
+              } catch (err) {
+                // Error fetching leave balance
                 setFormError('Không thể tải thông tin số ngày phép còn lại. Vui lòng thử lại.');
                 setFormSubmitting(false);
                 setBalanceLoading(false);
@@ -491,16 +511,17 @@ export default function RequestsPage() {
       
       closeModal();
       fetchRequests();
-    } catch (err: any) {
-      const message = err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại';
-      setFormError(Array.isArray(message) ? message.join(', ') : message);
+    } catch (err: unknown) {
+      const errorData = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data;
+      const message = errorData?.message || 'Có lỗi xảy ra, vui lòng thử lại';
+      setFormError(Array.isArray(message) ? message.join(', ') : String(message));
     } finally {
       setFormSubmitting(false);
     }
   };
 
   const getStatusBadge = (status: HrRequestStatus) => {
-    const statusMap: Record<HrRequestStatus, { bg: string; text: string; label: string; icon: any }> = {
+    const statusMap: Record<HrRequestStatus, { bg: string; text: string; label: string; icon: LucideIcon }> = {
       [HrRequestStatus.PENDING]: { 
         bg: 'bg-yellow-100', 
         text: 'text-yellow-700', 

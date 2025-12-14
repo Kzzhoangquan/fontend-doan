@@ -26,13 +26,16 @@ import { departmentService, Department } from '@/lib/api/services/department.ser
 import { positionService, Position } from '@/lib/api/services/position.service';
 import { roleService, Role } from '@/lib/api/services/role.service';
 import { employeePositionService, EmployeePosition } from '@/lib/api/services/employee-position.service';
+import { salarySettingsService } from '@/lib/api/services/salary-settings.service';
 import { useAuth } from '@/hooks/useAuth';
 import { UserRole } from '@/lib/constants/roles';
 import { resendVerificationEmail } from '@/lib/api/auth';
+import { useI18n } from '@/hooks/useI18n';
 
 export default function EmployeesPage() {
   const [notificationApi, contextHolder] = notification.useNotification();
   const { hasRole } = useAuth();
+  const { t } = useI18n();
   
   // States
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -60,8 +63,6 @@ export default function EmployeesPage() {
     email: '',
     employee_code: '',
     phone: '',
-    department: '',
-    position: '',
     status: 'ACTIVE',
     password: '',
     base_salary: undefined,
@@ -109,9 +110,10 @@ export default function EmployeesPage() {
       setEmployees(data.data);
       setTotal(data.total);
       setTotalPages(data.totalPages);
-    } catch (err: any) {
-      console.error('Error fetching employees:', err);
-      setError(err.response?.data?.message || 'Không thể tải danh sách nhân viên');
+    } catch (err: unknown) {
+      // Error fetching employees
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || t('employees.loadError');
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -122,8 +124,8 @@ export default function EmployeesPage() {
     try {
       const data = await employeeService.getAll({ pageSize: 1000 });
       setAllEmployees(data.data);
-    } catch (err: any) {
-      console.error('Error fetching all employees for stats:', err);
+    } catch (err: unknown) {
+      // Error fetching all employees for stats
     } finally {
       setStatsLoading(false);
     }
@@ -144,9 +146,10 @@ export default function EmployeesPage() {
       setDepartments(deptRes.data);
       setPositions(posRes.data);
       setRoles(rolesRes.data);
-    } catch (err: any) {
-      console.error('Error loading reference data:', err);
-      showNotification('error', 'Không thể tải danh sách phòng ban / vị trí / quyền', err.response?.data?.message);
+    } catch (err: unknown) {
+      // Error loading reference data
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      showNotification('error', 'Không thể tải danh sách phòng ban / vị trí / quyền', errorMessage);
     } finally {
       setOptionsLoading(false);
     }
@@ -178,21 +181,23 @@ export default function EmployeesPage() {
       await employeeService.unlockAccount(id);
       showNotification('success', `Đã mở khóa tài khoản của ${name}`);
       fetchEmployees();
-    } catch (err: any) {
-      showNotification('error', 'Không thể mở khóa tài khoản', err.response?.data?.message || err.message);
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message || (err as { message?: string })?.message || 'Không thể mở khóa tài khoản';
+      showNotification('error', 'Không thể mở khóa tài khoản', errorMessage);
     }
   };
 
   const handleDelete = async (id: number, name: string) => {
-    if (!confirm(`Bạn có chắc muốn xóa nhân viên "${name}"?`)) return;
+    if (!confirm(t('employees.deleteConfirm', { name }))) return;
 
     try {
       await employeeService.delete(id);
       fetchEmployees(); // Reload list
-      showNotification('success', 'Xóa nhân viên thành công!');
-    } catch (err: any) {
-      console.error('Error deleting employee:', err);
-      showNotification('error', 'Không thể xóa nhân viên', err.response?.data?.message);
+      showNotification('success', t('employees.deleteSuccess'));
+    } catch (err: unknown) {
+      // Error deleting employee
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      showNotification('error', t('employees.deleteError'), errorMessage);
     }
   };
 
@@ -270,8 +275,6 @@ export default function EmployeesPage() {
       email: '',
       employee_code: '',
       phone: '',
-      department: '',
-      position: '',
       status: 'ACTIVE',
       password: '',
       base_salary: undefined,
@@ -326,16 +329,14 @@ export default function EmployeesPage() {
               try {
                 salarySettings = await salarySettingsService.getByRole(employee.roles[0].id);
               } catch (err2) {
-                console.log('No salary settings found for employee or role');
+                // No salary settings found for employee or role
               }
             }
           }
         }
       } catch (err) {
-        console.error('Error loading salary settings:', err);
+        // Error loading salary settings - use defaults
       }
-      
-      console.log('Loaded salary settings:', salarySettings);
       
       setFormData({
         full_name: employee.full_name,
@@ -351,8 +352,9 @@ export default function EmployeesPage() {
         overtime_rate: salarySettings?.overtime_rate ? Number(salarySettings.overtime_rate) : 1.5,
       });
       setModalMode('edit');
-    } catch (err: any) {
-      showNotification('error', 'Không thể tải chi tiết nhân viên', err.response?.data?.message);
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể tải chi tiết nhân viên';
+      showNotification('error', 'Không thể tải chi tiết nhân viên', errorMessage);
     } finally {
       setFormSubmitting(false);
     }
@@ -365,8 +367,9 @@ export default function EmployeesPage() {
       const employee = await employeeService.getById(employeeId);
       setSelectedEmployee(employee);
       setModalMode('view');
-    } catch (err: any) {
-      showNotification('error', 'Không thể tải chi tiết nhân viên', err.response?.data?.message);
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể tải chi tiết nhân viên';
+      showNotification('error', 'Không thể tải chi tiết nhân viên', errorMessage);
     } finally {
       setFormSubmitting(false);
     }
@@ -385,8 +388,9 @@ export default function EmployeesPage() {
       setSelectedEmployee(employee);
       setSelectedRoleIds(employee.roles?.map(r => r.id) || []);
       setAssignRolesModalOpen(true);
-    } catch (err: any) {
-      showNotification('error', 'Không thể tải thông tin nhân viên', err.response?.data?.message);
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể tải thông tin nhân viên';
+      showNotification('error', 'Không thể tải thông tin nhân viên', errorMessage);
     } finally {
       setAssigningRoles(false);
     }
@@ -415,17 +419,18 @@ export default function EmployeesPage() {
       showNotification('success', 'Gán quyền thành công!');
       closeAssignRolesModal();
       fetchEmployees();
-    } catch (err: any) {
-      showNotification('error', 'Không thể gán quyền', err.response?.data?.message);
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể gán quyền';
+      showNotification('error', 'Không thể gán quyền', errorMessage);
     } finally {
       setAssigningRoles(false);
     }
   };
 
-  const handleFormChange = (field: keyof Employee, value: string) => {
+  const handleFormChange = (field: keyof Employee, value: string | number | undefined) => {
     setFormData(prev => ({
       ...prev,
-      [field]: value,
+      [field]: value !== undefined && value !== null ? (typeof value === 'number' ? value : String(value)) : undefined,
     }));
   };
 
@@ -493,9 +498,10 @@ export default function EmployeesPage() {
 
       closeModal();
       fetchEmployees();
-    } catch (err: any) {
-      const message = err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại';
-      setFormError(Array.isArray(message) ? message.join(', ') : message);
+    } catch (err: unknown) {
+      const errorData = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data;
+      const message = errorData?.message || 'Có lỗi xảy ra, vui lòng thử lại';
+      setFormError(Array.isArray(message) ? message.join(', ') : String(message));
       showNotification('error', 'Thao tác thất bại', Array.isArray(message) ? message.join(', ') : message);
     } finally {
       setFormSubmitting(false);
@@ -521,7 +527,7 @@ export default function EmployeesPage() {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
@@ -591,7 +597,7 @@ export default function EmployeesPage() {
               <Users className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Quản lý nhân viên</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{t('employees.title')}</h1>
               <p className="text-sm text-gray-500">Tổng số: {total} nhân viên</p>
             </div>
           </div>
@@ -601,7 +607,7 @@ export default function EmployeesPage() {
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Plus className="w-5 h-5" />
-              Thêm nhân viên
+              {t('employees.addEmployee')}
             </button>
           )}
         </div>
@@ -611,7 +617,7 @@ export default function EmployeesPage() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Tìm kiếm theo tên, email, mã nhân viên..."
+            placeholder={t('employees.searchPlaceholder')}
             value={search}
             onChange={(e) => handleSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
@@ -784,7 +790,7 @@ export default function EmployeesPage() {
                                 <Shield className="w-4 h-4" />
                               </button>
                             )}
-                            {(emp.status === 'SUSPENDED' || (emp as any).failed_login_count >= 10) && (
+                            {(emp.status === 'SUSPENDED' || ((emp as Employee & { failed_login_count?: number }).failed_login_count ?? 0) >= 10) && (
                               <button
                                 onClick={() => handleUnlock(emp.id, emp.full_name)}
                                 className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
@@ -918,7 +924,7 @@ export default function EmployeesPage() {
                               .filter(ep => ep.is_current)
                               .map(ep => ep.department?.name || 'Chưa phân công')
                               .join(', ') || '—'
-                          : selectedEmployee.department || '—'
+                          : '—'
                       } 
                     />
                     <DetailField 
@@ -929,7 +935,7 @@ export default function EmployeesPage() {
                               .filter(ep => ep.is_current)
                               .map(ep => ep.position?.title || 'N/A')
                               .join(', ') || '—'
-                          : selectedEmployee.position || '—'
+                          : '—'
                       } 
                     />
                     <DetailField label="Trạng thái" value={selectedEmployee.status} />
@@ -1008,8 +1014,9 @@ export default function EmployeesPage() {
                             setFormSubmitting(true);
                             await resendVerificationEmail(selectedEmployee.email);
                             showNotification('success', 'Thành công', 'Email xác thực đã được gửi lại!');
-                          } catch (err: any) {
-                            showNotification('error', 'Lỗi', err.message || 'Không thể gửi email xác thực');
+                          } catch (err: unknown) {
+                            const errorMessage = (err as { message?: string })?.message || 'Không thể gửi email xác thực';
+                            showNotification('error', 'Lỗi', errorMessage);
                           } finally {
                             setFormSubmitting(false);
                           }
@@ -1193,14 +1200,14 @@ export default function EmployeesPage() {
                       label="Lương cơ bản (VNĐ)"
                       type="number"
                       value={formData.base_salary !== undefined && formData.base_salary !== null ? formData.base_salary.toString() : ''}
-                      onChange={(value) => handleFormChange('base_salary', value ? parseFloat(value) : undefined)}
+                      onChange={(value) => handleFormChange('base_salary', value ? parseFloat(String(value)) : undefined)}
                       placeholder="VD: 10000000"
                     />
                     <InputField
                       label="Phụ cấp (VNĐ)"
                       type="number"
                       value={formData.allowance !== undefined && formData.allowance !== null ? formData.allowance.toString() : ''}
-                      onChange={(value) => handleFormChange('allowance', value ? parseFloat(value) : undefined)}
+                      onChange={(value) => handleFormChange('allowance', value ? parseFloat(String(value)) : undefined)}
                       placeholder="VD: 500000"
                     />
                     <InputField
@@ -1208,7 +1215,7 @@ export default function EmployeesPage() {
                       type="number"
                       step="0.1"
                       value={formData.insurance_rate !== undefined && formData.insurance_rate !== null ? formData.insurance_rate.toString() : '10.5'}
-                      onChange={(value) => handleFormChange('insurance_rate', value ? parseFloat(value) : 10.5)}
+                      onChange={(value) => handleFormChange('insurance_rate', value ? parseFloat(String(value)) : 10.5)}
                       placeholder="Mặc định: 10.5"
                     />
                     <InputField
@@ -1216,7 +1223,7 @@ export default function EmployeesPage() {
                       type="number"
                       step="0.1"
                       value={formData.overtime_rate !== undefined && formData.overtime_rate !== null ? formData.overtime_rate.toString() : '1.5'}
-                      onChange={(value) => handleFormChange('overtime_rate', value ? parseFloat(value) : 1.5)}
+                      onChange={(value) => handleFormChange('overtime_rate', value ? parseFloat(String(value)) : 1.5)}
                       placeholder="Mặc định: 1.5"
                     />
                   </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Select, message } from 'antd';
 import { issueService, IssueType, WorkflowStatus } from '@/lib/api/services/project-module/issue.service';
+import { useAuth } from '@/hooks/useAuth';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -18,6 +19,7 @@ export const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
 	onSuccess,
 	projectId,
 }) => {
+	const { user } = useAuth();
 	const [form] = Form.useForm();
 	const [loading, setLoading] = useState(false);
 	const [issueTypes, setIssueTypes] = useState<IssueType[]>([]);
@@ -32,7 +34,7 @@ export const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
 			const data = await issueService.getIssueTypes(projectId);
 			setIssueTypes(data);
 		} catch (error) {
-			console.error('Error fetching issue types:', error);
+			// Error fetching issue types
 			message.error('Không thể tải danh sách loại issue');
 		} finally {
 			setLoadingTypes(false);
@@ -46,7 +48,7 @@ export const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
 			const data = await issueService.getWorkflowStatuses(workflowId, projectId);
 			setStatuses(data);
 		} catch (error) {
-			console.error('Error fetching statuses:', error);
+			// Error fetching statuses
 			message.error('Không thể tải danh sách trạng thái');
 		} finally {
 			setLoadingStatuses(false);
@@ -68,12 +70,17 @@ export const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
 			const values = await form.validateFields();
 
 			// Prepare data for API
+			if (!user?.id) {
+				message.error('Không tìm thấy thông tin người dùng');
+				return;
+			}
+
 			const createData = {
 				project_id: projectId,
 				issue_type_id: values.issue_type_id,
 				current_status_id: values.current_status_id,
 				summary: values.summary,
-				reporter_id: 1, // Thay bằng user hiện tại
+				reporter_id: user.id,
 				issue_code: '', // Issue code sẽ được tạo tự động ở backend
 			};
 
@@ -84,11 +91,8 @@ export const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
 			onSuccess(data);
 			form.resetFields();
 			onClose();
-			setTimeout(() => {
-				window.location.reload();
-			}, 500);
 		} catch (error) {
-			console.error('Error creating issue:', error);
+			// Error creating issue
 			message.error('Không thể tạo issue');
 		} finally {
 			setLoading(false);

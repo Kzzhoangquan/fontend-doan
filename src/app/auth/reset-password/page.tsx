@@ -2,7 +2,7 @@
 
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import useNotificationStore from '@/hooks/notification/useNotificationStore ';
+import { notification } from 'antd';
 import { useState } from 'react';
 
 export default function ResetPasswordPage() {
@@ -10,10 +10,7 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
-
-  const addNotification = useNotificationStore(
-    (state: any) => state.addNotification
-  );
+  const [api, contextHolder] = notification.useNotification();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +33,10 @@ export default function ResetPasswordPage() {
 
       setIsSuccess(true);
     } catch (error) {
-      addNotification('パスワードのリセットに失敗しました', 'error');
+      api.error({
+        message: 'パスワードのリセットに失敗しました',
+        description: 'パスワードリセットに失敗しました。',
+      });
       setError('パスワードリセットに失敗しました。');
     } finally {
       setIsLoading(false);
@@ -45,7 +45,9 @@ export default function ResetPasswordPage() {
 
   if (isSuccess) {
     return (
-      <div className='min-h-screen bg-gray-100 flex items-center justify-center px-4'>
+      <>
+        {contextHolder}
+        <div className='min-h-screen bg-gray-100 flex items-center justify-center px-4'>
         <div className='max-w-md w-full bg-white rounded-lg shadow-md p-8'>
           <div className='text-center'>
             <div className='mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100'>
@@ -93,11 +95,14 @@ export default function ResetPasswordPage() {
           </div>
         </div>
       </div>
+      </>
     );
   }
 
   return (
-    <div className='min-h-screen bg-gray-100 flex items-center justify-center px-4'>
+    <>
+      {contextHolder}
+      <div className='min-h-screen bg-gray-100 flex items-center justify-center px-4'>
       <div className='max-w-md w-full bg-white rounded-lg shadow-md p-8'>
         <div className='text-center mb-8'>
           <h1 className='text-2xl font-bold text-gray-900 mb-2'>
@@ -152,5 +157,6 @@ export default function ResetPasswordPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

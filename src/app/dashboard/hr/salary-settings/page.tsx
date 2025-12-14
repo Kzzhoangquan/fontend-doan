@@ -38,10 +38,11 @@ export default function SalarySettingsPage() {
       setWorkScheduleLoading(true);
       const data = await workScheduleService.getSettings();
       setWorkSchedule(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = (err as { message?: string })?.message || 'Không thể tải cài đặt lịch làm việc';
       notificationApi.error({
         message: 'Lỗi',
-        description: err.message || 'Không thể tải cài đặt lịch làm việc',
+        description: errorMessage,
       });
     } finally {
       setWorkScheduleLoading(false);
@@ -53,10 +54,11 @@ export default function SalarySettingsPage() {
       setSalaryLoading(true);
       const data = await salarySettingsService.getAll();
       setSalarySettings(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = (err as { message?: string })?.message || 'Không thể tải cài đặt lương';
       notificationApi.error({
         message: 'Lỗi',
-        description: err.message || 'Không thể tải cài đặt lương',
+        description: errorMessage,
       });
     } finally {
       setSalaryLoading(false);
@@ -66,18 +68,18 @@ export default function SalarySettingsPage() {
   const loadRoles = async () => {
     try {
       const data = await roleService.getAll();
-      setRoles(data);
-    } catch (err: any) {
-      console.error('Failed to load roles:', err);
+      setRoles(data.data);
+    } catch (err: unknown) {
+      // Failed to load roles
     }
   };
 
   const loadEmployees = async () => {
     try {
       const data = await employeeService.getAll();
-      setEmployees(data);
-    } catch (err: any) {
-      console.error('Failed to load employees:', err);
+      setEmployees(data.data);
+    } catch (err: unknown) {
+      // Failed to load employees
     }
   };
 
@@ -91,10 +93,11 @@ export default function SalarySettingsPage() {
         message: 'Thành công',
         description: 'Đã cập nhật cài đặt lịch làm việc',
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = (err as { message?: string })?.message || 'Không thể cập nhật cài đặt lịch làm việc';
       notificationApi.error({
         message: 'Lỗi',
-        description: err.message || 'Không thể cập nhật cài đặt lịch làm việc',
+        description: errorMessage,
       });
     } finally {
       setWorkScheduleSaving(false);
@@ -118,10 +121,11 @@ export default function SalarySettingsPage() {
       setSelectedTarget(null);
       setSalaryForm({});
       loadSalarySettings();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = (err as { message?: string })?.message || 'Không thể cập nhật cài đặt lương';
       notificationApi.error({
         message: 'Lỗi',
-        description: err.message || 'Không thể cập nhật cài đặt lương',
+        description: errorMessage,
       });
     } finally {
       setSalarySaving(false);
@@ -487,4 +491,5 @@ export default function SalarySettingsPage() {
     </div>
   );
 }
+
 
