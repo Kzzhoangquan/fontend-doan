@@ -326,7 +326,7 @@ export default function PositionsPage() {
     return [];
   };
 
-  const renderDepartmentTree = (depts: Department[], level: number = 0, parentPath: number[] = []): JSX.Element[] => {
+  const renderDepartmentTree = (depts: Department[], level: number = 0, parentPath: number[] = []): any => {
     return depts.map((dept, index) => {
       const positionsInDept = getPositionsByDepartment(dept.id);
       const isExpanded = expandedDepartments.has(dept.id);
