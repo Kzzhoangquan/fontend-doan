@@ -26,3 +26,22 @@ export interface Department {
   employeeCount: number;
   description?: string;
 }
+
+export interface UserPermissionsResponse {
+  direct?: Array<{
+    permission?: {
+      name?: string;
+      description?: string;
+    };
+  }>;
+  roleBased?: Array<{
+    role?: {
+      rolePermissions?: Array<{
+        permission?: {
+          name?: string;
+          description?: string;
+        };
+      }>;
+    };
+  }>;
+}

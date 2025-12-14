@@ -45,5 +45,21 @@
             "delete": "Are you sure you want to delete this {{entity}}?",
             "remove": "Are you sure you want to remove this {{entity}}?"
         }
+    },
+    "auth": {
+        "resetPassword": {
+            "title": "Reset Password",
+            "description": "We will send a password reset URL to your registered email address",
+            "emailLabel": "Email Address",
+            "emailPlaceholder": "example@company.com",
+            "submitButton": "Send Reset Email",
+            "backToLogin": "Back to Login",
+            "successTitle": "Email Sent",
+            "successMessage": "Password reset link has been sent to <strong>{{email}}</strong>.",
+            "checkEmail": "Please check your email.",
+            "tryAnotherEmail": "Try another email address",
+            "errorTitle": "Password Reset Failed",
+            "errorMessage": "Failed to reset password. Please try again."
+        }
     }
 }

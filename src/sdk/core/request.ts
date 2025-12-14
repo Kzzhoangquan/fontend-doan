@@ -1,12 +1,11 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-// import { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios'
 import axios, {
   AxiosError,
   AxiosRequestConfig,
   AxiosResponse,
-} from '@/sdk/request/axios';
+} from 'axios';
 import FormData from 'form-data';
 
 import { ApiError } from '../core/ApiError';

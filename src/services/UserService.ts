@@ -1,4 +1,4 @@
-import { formatUserName } from '@/lib/util/string';
+import { formatUserName } from '@/lib/utils/format';
 
 import { UserEntity } from '@/sdk/models/UserEntity';
 import { UsersService } from '@/sdk/services/UsersService';
