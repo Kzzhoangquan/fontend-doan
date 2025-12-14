@@ -45,5 +45,21 @@
         "delete": "Bạn có chắc chắn muốn xóa {{entity}} này?",
         "remove": "Bạn có chắc chắn muốn xóa {{entity}} này?"
       }
+    },
+    "auth": {
+      "resetPassword": {
+        "title": "Đặt lại mật khẩu",
+        "description": "Chúng tôi sẽ gửi liên kết đặt lại mật khẩu đến địa chỉ email đã đăng ký của bạn",
+        "emailLabel": "Địa chỉ Email",
+        "emailPlaceholder": "example@company.com",
+        "submitButton": "Gửi Email Đặt Lại",
+        "backToLogin": "Quay lại Đăng nhập",
+        "successTitle": "Đã gửi Email",
+        "successMessage": "Liên kết đặt lại mật khẩu đã được gửi đến <strong>{{email}}</strong>.",
+        "checkEmail": "Vui lòng kiểm tra email của bạn.",
+        "tryAnotherEmail": "Thử địa chỉ email khác",
+        "errorTitle": "Đặt lại mật khẩu thất bại",
+        "errorMessage": "Không thể đặt lại mật khẩu. Vui lòng thử lại."
+      }
     }
 }

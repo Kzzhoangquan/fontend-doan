@@ -16,11 +16,11 @@ export type CreateUserDto = {
    */
   password: string;
   /**
-   * Disable user login (ログイン不可) - if true, user cannot login
+   * Disable user login - if true, user cannot login
    */
   isActive?: boolean;
   /**
-   * Array of permission names to assign to user (権限)
+   * Array of permission names to assign to user
    */
   permissions?: Array<string>;
   /**
