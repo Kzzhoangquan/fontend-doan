@@ -2,18 +2,17 @@
 
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import useNotificationStore from '@/hooks/notification/useNotificationStore ';
+import { notification } from 'antd';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export default function ResetPasswordPage() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
-
-  const addNotification = useNotificationStore(
-    (state: any) => state.addNotification
-  );
+  const [api, contextHolder] = notification.useNotification();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,13 +30,16 @@ export default function ResetPasswordPage() {
       });
 
       if (!response.ok) {
-        throw new Error('パスワードのリセットに失敗しました');
+        throw new Error(t('auth.resetPassword.errorMessage'));
       }
 
       setIsSuccess(true);
     } catch (error) {
-      addNotification('パスワードのリセットに失敗しました', 'error');
-      setError('パスワードリセットに失敗しました。');
+      api.error({
+        message: t('auth.resetPassword.errorTitle'),
+        description: t('auth.resetPassword.errorMessage'),
+      });
+      setError(t('auth.resetPassword.errorMessage'));
     } finally {
       setIsLoading(false);
     }
@@ -45,7 +47,9 @@ export default function ResetPasswordPage() {
 
   if (isSuccess) {
     return (
-      <div className='min-h-screen bg-gray-100 flex items-center justify-center px-4'>
+      <>
+        {contextHolder}
+        <div className='min-h-screen bg-gray-100 flex items-center justify-center px-4'>
         <div className='max-w-md w-full bg-white rounded-lg shadow-md p-8'>
           <div className='text-center'>
             <div className='mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100'>
@@ -64,14 +68,15 @@ export default function ResetPasswordPage() {
               </svg>
             </div>
             <h3 className='mt-4 text-lg font-medium text-gray-900'>
-              メール送信完了
+              {t('auth.resetPassword.successTitle')}
             </h3>
             <div className='mt-2 text-sm text-gray-500'>
-              <p>
-                パスワードリセットリンクが <strong>{email}</strong>{' '}
-                に送信されました。
-              </p>
-              <p className='mt-2'>メールをご確認ください。</p>
+              <p
+                dangerouslySetInnerHTML={{
+                  __html: t('auth.resetPassword.successMessage', { email }),
+                }}
+              />
+              <p className='mt-2'>{t('auth.resetPassword.checkEmail')}</p>
             </div>
             <div className='mt-6'>
               <Button
@@ -79,7 +84,7 @@ export default function ResetPasswordPage() {
                 variant='outline'
                 className='w-full'
               >
-                別のメールアドレスを試す
+                {t('auth.resetPassword.tryAnotherEmail')}
               </Button>
             </div>
             <div className='mt-4'>
@@ -87,24 +92,27 @@ export default function ResetPasswordPage() {
                 href='/login'
                 className='text-sm text-blue-600 hover:text-blue-500'
               >
-                ログインに戻る
+                {t('auth.resetPassword.backToLogin')}
               </a>
             </div>
           </div>
         </div>
       </div>
+      </>
     );
   }
 
   return (
-    <div className='min-h-screen bg-gray-100 flex items-center justify-center px-4'>
+    <>
+      {contextHolder}
+      <div className='min-h-screen bg-gray-100 flex items-center justify-center px-4'>
       <div className='max-w-md w-full bg-white rounded-lg shadow-md p-8'>
         <div className='text-center mb-8'>
           <h1 className='text-2xl font-bold text-gray-900 mb-2'>
-            パスワードリセット
+            {t('auth.resetPassword.title')}
           </h1>
           <p className='text-gray-600'>
-            登録されたメールアドレスにパスワードリセットURLを送信いたします
+            {t('auth.resetPassword.description')}
           </p>
         </div>
 
@@ -114,14 +122,14 @@ export default function ResetPasswordPage() {
               htmlFor='email'
               className='block text-sm font-medium text-gray-700 mb-2'
             >
-              メールアドレス
+              {t('auth.resetPassword.emailLabel')}
             </label>
             <Input
               id='email'
               type='email'
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder='example@company.com'
+              placeholder={t('auth.resetPassword.emailPlaceholder')}
               required
               className='w-full'
             />
@@ -137,7 +145,7 @@ export default function ResetPasswordPage() {
             disabled={isLoading}
             className='w-full'
           >
-            リセットメール送信
+            {t('auth.resetPassword.submitButton')}
           </Button>
         </form>
 
@@ -147,10 +155,11 @@ export default function ResetPasswordPage() {
             href='/login'
             className='text-sm text-blue-600 hover:text-blue-500'
           >
-            ログインに戻る
+            {t('auth.resetPassword.backToLogin')}
           </a>
         </div>
       </div>
     </div>
+    </>
   );
 }

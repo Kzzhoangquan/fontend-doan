@@ -3,17 +3,14 @@
 
 import { useEffect } from 'react';
 import { useAppDispatch } from '../hooks';
-import { setCredentials } from '../slices/authSlice';
-import { loadState } from '@/lib/utils/storage';
+import { restoreAuth } from '../slices/authSlice';
 
 export function PersistAuth() {
   const dispatch = useAppDispatch();
 
   useEffect(() => {
-    const auth = loadState('auth');
-    if (auth?.isAuthenticated && auth.token && auth.user) {
-      dispatch(setCredentials({ token: auth.token, user: auth.user }));
-    }
+    // restoreAuth sẽ tự động load user và tokens từ storage
+    dispatch(restoreAuth());
   }, [dispatch]);
 
   return null;

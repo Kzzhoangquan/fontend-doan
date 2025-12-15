@@ -117,7 +117,6 @@ export default function AttendanceVerificationModal({
           action_type: actionType,
           device_id: deviceInfo.device_id,
           device_name: deviceInfo.device_name,
-          device_type: deviceInfo.device_type,
           os: deviceInfo.os,
           browser: deviceInfo.browser,
           screen_resolution: deviceInfo.screen_resolution,

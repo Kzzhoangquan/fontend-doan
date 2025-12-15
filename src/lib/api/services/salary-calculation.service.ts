@@ -54,6 +54,11 @@ export const salaryCalculationService = {
     return response.data;
   },
 
+  async approveAll(year: number, month: number): Promise<{ approved: number; failed: number; errors: Array<{ id: number; error: string }> }> {
+    const response = await apiClient.put('/salary-calculation/approve-all', { year, month });
+    return response.data;
+  },
+
         async markAsPaid(id: number, payDate: string, paymentMethod: string): Promise<EmployeeSalary> {
           const response = await apiClient.put(`/salary-calculation/${id}/mark-paid`, {
             pay_date: payDate,

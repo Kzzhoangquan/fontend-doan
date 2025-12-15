@@ -137,7 +137,8 @@ api.interceptors.response.use(
     }
 
     // 401 VÀ CHƯA RETRY
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Skip refresh logic for login endpoint - login errors should be handled by login page
+    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/login')) {
       console.log('🔄 Token expired, refreshing...');
       
       // NẾU ĐANG REFRESH → ĐỢI TRONG QUEUE
@@ -161,7 +162,9 @@ api.interceptors.response.use(
       try {
         const tokens = storage.getTokens();
         if (!tokens?.refreshToken) {
-          throw new Error('No refresh token');
+          // Don't show error for missing refresh token - just reject the request
+          // This happens when user is not logged in yet
+          return Promise.reject(error);
         }
 
         console.log('📡 Calling refresh token API...');
@@ -196,10 +199,13 @@ api.interceptors.response.use(
         console.error('❌ Refresh token error:', refreshError);
         processQueue(refreshError, null);
         storage.removeTokens();
+        // Only show error and redirect if not already on login page
+        if (!window.location.pathname.includes('/auth/login')) {
         message.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
         setTimeout(() => {
           window.location.href = '/auth/login';
         }, 1000);
+        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
@@ -207,7 +213,10 @@ api.interceptors.response.use(
     }
 
     // HIỂN thị error notification cho tất cả các lỗi khác
+    // Skip notification for login endpoint - let login page handle it
+    if (!error.config?.url?.includes('/auth/login')) {
     showErrorNotification(error);
+    }
 
     return Promise.reject(error);
   }

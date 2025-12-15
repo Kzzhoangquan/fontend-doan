@@ -17,20 +17,25 @@ import {
   X,
   Shield,
   BarChart3,
-  PieChart
+  PieChart,
+  Unlock
 } from 'lucide-react';
 import { PieChart as RechartsPieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { employeeService, Employee } from '@/lib/api/services/employee.service';
 import { departmentService, Department } from '@/lib/api/services/department.service';
 import { positionService, Position } from '@/lib/api/services/position.service';
 import { roleService, Role } from '@/lib/api/services/role.service';
+import { employeePositionService, EmployeePosition } from '@/lib/api/services/employee-position.service';
+import { salarySettingsService } from '@/lib/api/services/salary-settings.service';
 import { useAuth } from '@/hooks/useAuth';
 import { UserRole } from '@/lib/constants/roles';
 import { resendVerificationEmail } from '@/lib/api/auth';
+import { useI18n } from '@/hooks/useI18n';
 
 export default function EmployeesPage() {
   const [notificationApi, contextHolder] = notification.useNotification();
   const { hasRole } = useAuth();
+  const { t } = useI18n();
   
   // States
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -58,8 +63,6 @@ export default function EmployeesPage() {
     email: '',
     employee_code: '',
     phone: '',
-    department: '',
-    position: '',
     status: 'ACTIVE',
     password: '',
     base_salary: undefined,
@@ -67,6 +70,14 @@ export default function EmployeesPage() {
     insurance_rate: 10.5,
     overtime_rate: 1.5,
   });
+  const [employeePositions, setEmployeePositions] = useState<Array<{
+    id?: number;
+    department_id: number | null;
+    position_id: number | null;
+    start_date: string;
+    end_date: string | null;
+    is_current: boolean;
+  }>>([]);
 
   // Fetch employees với debounce
   useEffect(() => {
@@ -95,12 +106,14 @@ export default function EmployeesPage() {
         search: search.trim(),
       });
       
+      // Backend already returns employee_positions, use them directly
       setEmployees(data.data);
       setTotal(data.total);
       setTotalPages(data.totalPages);
-    } catch (err: any) {
-      console.error('Error fetching employees:', err);
-      setError(err.response?.data?.message || 'Không thể tải danh sách nhân viên');
+    } catch (err: unknown) {
+      // Error fetching employees
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || t('employees.loadError');
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -111,8 +124,8 @@ export default function EmployeesPage() {
     try {
       const data = await employeeService.getAll({ pageSize: 1000 });
       setAllEmployees(data.data);
-    } catch (err: any) {
-      console.error('Error fetching all employees for stats:', err);
+    } catch (err: unknown) {
+      // Error fetching all employees for stats
     } finally {
       setStatsLoading(false);
     }
@@ -133,9 +146,10 @@ export default function EmployeesPage() {
       setDepartments(deptRes.data);
       setPositions(posRes.data);
       setRoles(rolesRes.data);
-    } catch (err: any) {
-      console.error('Error loading reference data:', err);
-      showNotification('error', 'Không thể tải danh sách phòng ban / vị trí / quyền', err.response?.data?.message);
+    } catch (err: unknown) {
+      // Error loading reference data
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      showNotification('error', 'Không thể tải danh sách phòng ban / vị trí / quyền', errorMessage);
     } finally {
       setOptionsLoading(false);
     }
@@ -158,16 +172,32 @@ export default function EmployeesPage() {
     });
   };
 
+  const handleUnlock = async (id: number, name: string) => {
+    if (!confirm(`Bạn có chắc chắn muốn mở khóa tài khoản của ${name}?`)) {
+      return;
+    }
+
+    try {
+      await employeeService.unlockAccount(id);
+      showNotification('success', `Đã mở khóa tài khoản của ${name}`);
+      fetchEmployees();
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message || (err as { message?: string })?.message || 'Không thể mở khóa tài khoản';
+      showNotification('error', 'Không thể mở khóa tài khoản', errorMessage);
+    }
+  };
+
   const handleDelete = async (id: number, name: string) => {
-    if (!confirm(`Bạn có chắc muốn xóa nhân viên "${name}"?`)) return;
+    if (!confirm(t('employees.deleteConfirm', { name }))) return;
 
     try {
       await employeeService.delete(id);
       fetchEmployees(); // Reload list
-      showNotification('success', 'Xóa nhân viên thành công!');
-    } catch (err: any) {
-      console.error('Error deleting employee:', err);
-      showNotification('error', 'Không thể xóa nhân viên', err.response?.data?.message);
+      showNotification('success', t('employees.deleteSuccess'));
+    } catch (err: unknown) {
+      // Error deleting employee
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      showNotification('error', t('employees.deleteError'), errorMessage);
     }
   };
 
@@ -195,8 +225,11 @@ export default function EmployeesPage() {
       // Status stats
       statusCount[emp.status] = (statusCount[emp.status] || 0) + 1;
       
-      // Department stats
-      const dept = emp.department || 'Chưa phân công';
+      // Department stats - get from employee_positions
+      const currentPositions = emp.employee_positions?.filter(ep => ep.is_current) || [];
+      const dept = currentPositions.length > 0 
+        ? currentPositions[0].department?.name || 'Chưa phân công'
+        : 'Chưa phân công';
       departmentCount[dept] = (departmentCount[dept] || 0) + 1;
       
       // Role stats
@@ -242,8 +275,6 @@ export default function EmployeesPage() {
       email: '',
       employee_code: '',
       phone: '',
-      department: '',
-      position: '',
       status: 'ACTIVE',
       password: '',
       base_salary: undefined,
@@ -251,6 +282,13 @@ export default function EmployeesPage() {
       insurance_rate: 10.5,
       overtime_rate: 1.5,
     });
+    setEmployeePositions([{
+      department_id: null,
+      position_id: null,
+      start_date: new Date().toISOString().split('T')[0],
+      end_date: null,
+      is_current: true,
+    }]);
     setFormError('');
     // Đảm bảo load lại danh sách departments và positions khi mở modal
     if (departments.length === 0 || positions.length === 0) {
@@ -264,6 +302,17 @@ export default function EmployeesPage() {
       setFormSubmitting(true);
       const employee = await employeeService.getById(employeeId);
       setSelectedEmployee(employee);
+      
+      // Load employee positions
+      const positions = await employeePositionService.getByEmployee(employeeId);
+      setEmployeePositions(positions.map(ep => ({
+        id: ep.id,
+        department_id: ep.department_id,
+        position_id: ep.position_id,
+        start_date: ep.start_date.split('T')[0],
+        end_date: ep.end_date ? ep.end_date.split('T')[0] : null,
+        is_current: ep.is_current,
+      })));
       
       // Load salary settings (try employee-specific first, then role-based)
       let salarySettings = null;
@@ -280,16 +329,14 @@ export default function EmployeesPage() {
               try {
                 salarySettings = await salarySettingsService.getByRole(employee.roles[0].id);
               } catch (err2) {
-                console.log('No salary settings found for employee or role');
+                // No salary settings found for employee or role
               }
             }
           }
         }
       } catch (err) {
-        console.error('Error loading salary settings:', err);
+        // Error loading salary settings - use defaults
       }
-      
-      console.log('Loaded salary settings:', salarySettings);
       
       setFormData({
         full_name: employee.full_name,
@@ -297,8 +344,6 @@ export default function EmployeesPage() {
         email: employee.email,
         employee_code: employee.employee_code,
         phone: employee.phone || '',
-        department: employee.department || '',
-        position: employee.position || '',
         status: employee.status,
         password: '',
         base_salary: salarySettings?.base_salary ? Number(salarySettings.base_salary) : undefined,
@@ -307,8 +352,9 @@ export default function EmployeesPage() {
         overtime_rate: salarySettings?.overtime_rate ? Number(salarySettings.overtime_rate) : 1.5,
       });
       setModalMode('edit');
-    } catch (err: any) {
-      showNotification('error', 'Không thể tải chi tiết nhân viên', err.response?.data?.message);
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể tải chi tiết nhân viên';
+      showNotification('error', 'Không thể tải chi tiết nhân viên', errorMessage);
     } finally {
       setFormSubmitting(false);
     }
@@ -321,8 +367,9 @@ export default function EmployeesPage() {
       const employee = await employeeService.getById(employeeId);
       setSelectedEmployee(employee);
       setModalMode('view');
-    } catch (err: any) {
-      showNotification('error', 'Không thể tải chi tiết nhân viên', err.response?.data?.message);
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể tải chi tiết nhân viên';
+      showNotification('error', 'Không thể tải chi tiết nhân viên', errorMessage);
     } finally {
       setFormSubmitting(false);
     }
@@ -341,8 +388,9 @@ export default function EmployeesPage() {
       setSelectedEmployee(employee);
       setSelectedRoleIds(employee.roles?.map(r => r.id) || []);
       setAssignRolesModalOpen(true);
-    } catch (err: any) {
-      showNotification('error', 'Không thể tải thông tin nhân viên', err.response?.data?.message);
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể tải thông tin nhân viên';
+      showNotification('error', 'Không thể tải thông tin nhân viên', errorMessage);
     } finally {
       setAssigningRoles(false);
     }
@@ -371,23 +419,37 @@ export default function EmployeesPage() {
       showNotification('success', 'Gán quyền thành công!');
       closeAssignRolesModal();
       fetchEmployees();
-    } catch (err: any) {
-      showNotification('error', 'Không thể gán quyền', err.response?.data?.message);
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể gán quyền';
+      showNotification('error', 'Không thể gán quyền', errorMessage);
     } finally {
       setAssigningRoles(false);
     }
   };
 
-  const handleFormChange = (field: keyof Employee, value: string) => {
+  const handleFormChange = (field: keyof Employee, value: string | number | undefined) => {
     setFormData(prev => ({
       ...prev,
-      [field]: value,
+      [field]: value !== undefined && value !== null ? (typeof value === 'number' ? value : String(value)) : undefined,
     }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!modalMode || modalMode === 'view') return;
+
+    // Validate employee positions
+    if (employeePositions.length === 0) {
+      setFormError('Vui lòng thêm ít nhất một phòng ban và vị trí');
+      return;
+    }
+
+    for (const ep of employeePositions) {
+      if (!ep.department_id || !ep.position_id || !ep.start_date) {
+        setFormError('Vui lòng điền đầy đủ thông tin phòng ban, vị trí và ngày bắt đầu cho tất cả các vị trí');
+        return;
+      }
+    }
 
     setFormSubmitting(true);
     setFormError('');
@@ -397,18 +459,49 @@ export default function EmployeesPage() {
     };
 
     try {
+      let employeeId: number;
       if (modalMode === 'create') {
-        await employeeService.create(payload);
+        const newEmployee = await employeeService.create(payload);
+        employeeId = newEmployee.id;
         showNotification('success', 'Tạo nhân viên thành công');
       } else if (modalMode === 'edit' && selectedEmployee) {
         await employeeService.update(selectedEmployee.id, payload);
+        employeeId = selectedEmployee.id;
         showNotification('success', 'Cập nhật nhân viên thành công');
+      } else {
+        return;
       }
+
+      // Create/Update employee positions
+      for (const ep of employeePositions) {
+        if (ep.id) {
+          // Update existing position
+          await employeePositionService.update(ep.id, {
+            department_id: ep.department_id || undefined,
+            position_id: ep.position_id || undefined,
+            start_date: ep.start_date,
+            end_date: ep.end_date || undefined,
+            is_current: ep.is_current,
+          });
+        } else {
+          // Create new position
+          await employeePositionService.create({
+            employee_id: employeeId,
+            department_id: ep.department_id || undefined,
+            position_id: ep.position_id || undefined,
+            start_date: ep.start_date,
+            end_date: ep.end_date || undefined,
+            is_current: ep.is_current,
+          });
+        }
+      }
+
       closeModal();
       fetchEmployees();
-    } catch (err: any) {
-      const message = err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại';
-      setFormError(Array.isArray(message) ? message.join(', ') : message);
+    } catch (err: unknown) {
+      const errorData = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data;
+      const message = errorData?.message || 'Có lỗi xảy ra, vui lòng thử lại';
+      setFormError(Array.isArray(message) ? message.join(', ') : String(message));
       showNotification('error', 'Thao tác thất bại', Array.isArray(message) ? message.join(', ') : message);
     } finally {
       setFormSubmitting(false);
@@ -434,7 +527,7 @@ export default function EmployeesPage() {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
@@ -504,7 +597,7 @@ export default function EmployeesPage() {
               <Users className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Quản lý nhân viên</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{t('employees.title')}</h1>
               <p className="text-sm text-gray-500">Tổng số: {total} nhân viên</p>
             </div>
           </div>
@@ -514,7 +607,7 @@ export default function EmployeesPage() {
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Plus className="w-5 h-5" />
-              Thêm nhân viên
+              {t('employees.addEmployee')}
             </button>
           )}
         </div>
@@ -524,7 +617,7 @@ export default function EmployeesPage() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Tìm kiếm theo tên, email, mã nhân viên..."
+            placeholder={t('employees.searchPlaceholder')}
             value={search}
             onChange={(e) => handleSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
@@ -618,13 +711,36 @@ export default function EmployeesPage() {
 
                       <td className="px-6 py-4">
                         <div className="space-y-1">
-                          <p className="text-sm font-medium text-gray-900">
-                            {emp.department || 'N/A'}
-                          </p>
-                          <p className="text-xs text-gray-500 flex items-center gap-1">
-                            <Briefcase className="w-3 h-3" />
-                            {emp.position || 'N/A'}
-                          </p>
+                          {emp.employee_positions && emp.employee_positions.length > 0 ? (
+                            emp.employee_positions
+                              .filter(ep => ep.is_current)
+                              .map((ep, idx) => (
+                                <div key={ep.id || idx} className="space-y-1">
+                                  <p className="text-sm font-medium text-gray-900">
+                                    {ep.department?.name || 'Chưa phân công'}
+                                  </p>
+                                  <p className="text-xs text-gray-500 flex items-center gap-1">
+                                    <Briefcase className="w-3 h-3" />
+                                    {ep.position?.title || 'N/A'}
+                                  </p>
+                                </div>
+                              ))
+                          ) : (
+                            <>
+                              <p className="text-sm font-medium text-gray-900">
+                                Chưa phân công
+                              </p>
+                              <p className="text-xs text-gray-500 flex items-center gap-1">
+                                <Briefcase className="w-3 h-3" />
+                                N/A
+                              </p>
+                            </>
+                          )}
+                          {emp.employee_positions && emp.employee_positions.filter(ep => ep.is_current).length > 1 && (
+                            <p className="text-xs text-blue-600 mt-1">
+                              +{emp.employee_positions.filter(ep => ep.is_current).length - 1} phòng ban khác
+                            </p>
+                          )}
                         </div>
                       </td>
 
@@ -672,6 +788,15 @@ export default function EmployeesPage() {
                                 title="Gán quyền"
                               >
                                 <Shield className="w-4 h-4" />
+                              </button>
+                            )}
+                            {(emp.status === 'SUSPENDED' || ((emp as Employee & { failed_login_count?: number }).failed_login_count ?? 0) >= 10) && (
+                              <button
+                                onClick={() => handleUnlock(emp.id, emp.full_name)}
+                                className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                title="Mở khóa tài khoản"
+                              >
+                                <Unlock className="w-4 h-4" />
                               </button>
                             )}
                             <button
@@ -759,9 +884,9 @@ export default function EmployeesPage() {
         </>
       )}
       {!!modalMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl">
-            <div className="flex items-center justify-between border-b px-6 py-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-4">
+          <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between border-b px-6 py-4 flex-shrink-0">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">
                   {modalMode === 'create' && 'Thêm nhân viên'}
@@ -783,43 +908,74 @@ export default function EmployeesPage() {
             </div>
 
             {modalMode === 'view' && selectedEmployee ? (
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <DetailField label="Họ tên" value={selectedEmployee.full_name} />
-                  <DetailField label="Tên đăng nhập" value={selectedEmployee.username} />
-                  <DetailField label="Email" value={selectedEmployee.email} />
-                  <DetailField label="Mã nhân viên" value={selectedEmployee.employee_code} />
-                  <DetailField label="Số điện thoại" value={selectedEmployee.phone || '—'} />
-                  <DetailField label="Phòng ban" value={selectedEmployee.department || '—'} />
-                  <DetailField label="Vị trí" value={selectedEmployee.position || '—'} />
-                  <DetailField label="Trạng thái" value={selectedEmployee.status} />
-                </div>
-
-                <div>
-                  <p className="text-sm font-semibold text-gray-700 mb-2">Vai trò</p>
-                  {selectedEmployee.roles && selectedEmployee.roles.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedEmployee.roles.map(role => (
-                        <span
-                          key={role.id}
-                          className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium"
-                        >
-                          {role.name}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500">Chưa có vai trò</p>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                {formError && (
-                  <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-2">
-                    {formError}
+              <>
+                <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                  <div className="grid grid-cols-2 gap-4">
+                    <DetailField label="Họ tên" value={selectedEmployee.full_name} />
+                    <DetailField label="Tên đăng nhập" value={selectedEmployee.username} />
+                    <DetailField label="Email" value={selectedEmployee.email} />
+                    <DetailField label="Mã nhân viên" value={selectedEmployee.employee_code} />
+                    <DetailField label="Số điện thoại" value={selectedEmployee.phone || '—'} />
+                    <DetailField 
+                      label="Phòng ban" 
+                      value={
+                        selectedEmployee.employee_positions && selectedEmployee.employee_positions.length > 0
+                          ? selectedEmployee.employee_positions
+                              .filter(ep => ep.is_current)
+                              .map(ep => ep.department?.name || 'Chưa phân công')
+                              .join(', ') || '—'
+                          : '—'
+                      } 
+                    />
+                    <DetailField 
+                      label="Vị trí" 
+                      value={
+                        selectedEmployee.employee_positions && selectedEmployee.employee_positions.length > 0
+                          ? selectedEmployee.employee_positions
+                              .filter(ep => ep.is_current)
+                              .map(ep => ep.position?.title || 'N/A')
+                              .join(', ') || '—'
+                          : '—'
+                      } 
+                    />
+                    <DetailField label="Trạng thái" value={selectedEmployee.status} />
                   </div>
-                )}
+
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700 mb-2">Vai trò</p>
+                    {selectedEmployee.roles && selectedEmployee.roles.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {selectedEmployee.roles.map(role => (
+                          <span
+                            key={role.id}
+                            className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium"
+                          >
+                            {role.name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">Chưa có vai trò</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-3 pt-4 border-t px-6 pb-4 bg-gray-50 flex-shrink-0">
+                  <button
+                    onClick={closeModal}
+                    className="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              </>
+            ) : (
+              <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                  {formError && (
+                    <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-2">
+                      {formError}
+                    </div>
+                  )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <InputField
@@ -858,8 +1014,9 @@ export default function EmployeesPage() {
                             setFormSubmitting(true);
                             await resendVerificationEmail(selectedEmployee.email);
                             showNotification('success', 'Thành công', 'Email xác thực đã được gửi lại!');
-                          } catch (err: any) {
-                            showNotification('error', 'Lỗi', err.message || 'Không thể gửi email xác thực');
+                          } catch (err: unknown) {
+                            const errorMessage = (err as { message?: string })?.message || 'Không thể gửi email xác thực';
+                            showNotification('error', 'Lỗi', errorMessage);
                           } finally {
                             setFormSubmitting(false);
                           }
@@ -883,28 +1040,144 @@ export default function EmployeesPage() {
                     value={formData.phone || ''}
                     onChange={(value) => handleFormChange('phone', value)}
                   />
-                  <SelectField
-                    label="Phòng ban"
-                    value={formData.department || ''}
-                    onChange={(value) => handleFormChange('department', value)}
-                    options={departments.map((dept) => ({
-                      label: dept.name,
-                      value: dept.name,
-                    }))}
-                    placeholder={optionsLoading ? 'Đang tải danh sách...' : 'Chọn phòng ban'}
-                    loading={optionsLoading}
-                  />
-                  <SelectField
-                    label="Vị trí"
-                    value={formData.position || ''}
-                    onChange={(value) => handleFormChange('position', value)}
-                    options={positions.map((pos) => ({
-                      label: pos.title,
-                      value: pos.title,
-                    }))}
-                    placeholder={optionsLoading ? 'Đang tải danh sách...' : 'Chọn vị trí'}
-                    loading={optionsLoading}
-                  />
+                  {/* Employee Positions Section - Multiple departments and positions */}
+                  <div className="md:col-span-2">
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Phòng ban & Vị trí <span className="text-red-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEmployeePositions(prev => [...prev, {
+                            department_id: null,
+                            position_id: null,
+                            start_date: new Date().toISOString().split('T')[0],
+                            end_date: null,
+                            is_current: false,
+                          }]);
+                        }}
+                        className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Thêm phòng ban
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {employeePositions.map((ep, index) => (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Phòng ban <span className="text-red-500">*</span>
+                              </label>
+                              <select
+                                value={ep.department_id || ''}
+                                onChange={(e) => {
+                                  const newPositions = [...employeePositions];
+                                  newPositions[index].department_id = e.target.value ? Number(e.target.value) : null;
+                                  newPositions[index].position_id = null; // Reset position when department changes
+                                  setEmployeePositions(newPositions);
+                                }}
+                                required
+                                className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                              >
+                                <option value="">Chọn phòng ban</option>
+                                {departments.map((dept) => (
+                                  <option key={dept.id} value={dept.id}>
+                                    {dept.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Vị trí <span className="text-red-500">*</span>
+                              </label>
+                              <select
+                                value={ep.position_id || ''}
+                                onChange={(e) => {
+                                  const newPositions = [...employeePositions];
+                                  newPositions[index].position_id = e.target.value ? Number(e.target.value) : null;
+                                  setEmployeePositions(newPositions);
+                                }}
+                                required
+                                disabled={!ep.department_id}
+                                className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                              >
+                                <option value="">{ep.department_id ? 'Chọn vị trí' : 'Chọn phòng ban trước'}</option>
+                                {ep.department_id && positions
+                                  .filter(pos => pos.department_id === ep.department_id)
+                                  .map((pos) => (
+                                    <option key={pos.id} value={pos.id}>
+                                      {pos.title}
+                                    </option>
+                                  ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Ngày bắt đầu <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="date"
+                                value={ep.start_date}
+                                onChange={(e) => {
+                                  const newPositions = [...employeePositions];
+                                  newPositions[index].start_date = e.target.value;
+                                  setEmployeePositions(newPositions);
+                                }}
+                                required
+                                className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Ngày kết thúc
+                              </label>
+                              <input
+                                type="date"
+                                value={ep.end_date || ''}
+                                onChange={(e) => {
+                                  const newPositions = [...employeePositions];
+                                  newPositions[index].end_date = e.target.value || null;
+                                  setEmployeePositions(newPositions);
+                                }}
+                                className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                              />
+                            </div>
+                            <div className="md:col-span-2 flex items-center justify-between">
+                              <label className="flex items-center gap-2 text-sm text-gray-700">
+                                <input
+                                  type="checkbox"
+                                  checked={ep.is_current}
+                                  onChange={(e) => {
+                                    const newPositions = [...employeePositions];
+                                    newPositions[index].is_current = e.target.checked;
+                                    setEmployeePositions(newPositions);
+                                  }}
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span>Vị trí hiện tại</span>
+                              </label>
+                              {employeePositions.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEmployeePositions(prev => prev.filter((_, i) => i !== index));
+                                  }}
+                                  className="text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  Xóa
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Trạng thái</label>
                     <select
@@ -927,14 +1200,14 @@ export default function EmployeesPage() {
                       label="Lương cơ bản (VNĐ)"
                       type="number"
                       value={formData.base_salary !== undefined && formData.base_salary !== null ? formData.base_salary.toString() : ''}
-                      onChange={(value) => handleFormChange('base_salary', value ? parseFloat(value) : undefined)}
+                      onChange={(value) => handleFormChange('base_salary', value ? parseFloat(String(value)) : undefined)}
                       placeholder="VD: 10000000"
                     />
                     <InputField
                       label="Phụ cấp (VNĐ)"
                       type="number"
                       value={formData.allowance !== undefined && formData.allowance !== null ? formData.allowance.toString() : ''}
-                      onChange={(value) => handleFormChange('allowance', value ? parseFloat(value) : undefined)}
+                      onChange={(value) => handleFormChange('allowance', value ? parseFloat(String(value)) : undefined)}
                       placeholder="VD: 500000"
                     />
                     <InputField
@@ -942,7 +1215,7 @@ export default function EmployeesPage() {
                       type="number"
                       step="0.1"
                       value={formData.insurance_rate !== undefined && formData.insurance_rate !== null ? formData.insurance_rate.toString() : '10.5'}
-                      onChange={(value) => handleFormChange('insurance_rate', value ? parseFloat(value) : 10.5)}
+                      onChange={(value) => handleFormChange('insurance_rate', value ? parseFloat(String(value)) : 10.5)}
                       placeholder="Mặc định: 10.5"
                     />
                     <InputField
@@ -950,7 +1223,7 @@ export default function EmployeesPage() {
                       type="number"
                       step="0.1"
                       value={formData.overtime_rate !== undefined && formData.overtime_rate !== null ? formData.overtime_rate.toString() : '1.5'}
-                      onChange={(value) => handleFormChange('overtime_rate', value ? parseFloat(value) : 1.5)}
+                      onChange={(value) => handleFormChange('overtime_rate', value ? parseFloat(String(value)) : 1.5)}
                       placeholder="Mặc định: 1.5"
                     />
                   </div>
@@ -958,8 +1231,9 @@ export default function EmployeesPage() {
                     <strong>Lưu ý:</strong> Các trường này là tùy chọn. Nếu không nhập, hệ thống sẽ sử dụng cài đặt lương theo vai trò (nếu có).
                   </p>
                 </div>
+                </div>
 
-                <div className="flex items-center justify-end gap-3 pt-4 border-t">
+                <div className="flex items-center justify-end gap-3 pt-4 border-t px-6 py-4 bg-gray-50 flex-shrink-0">
                   <button
                     type="button"
                     onClick={closeModal}

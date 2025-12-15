@@ -44,7 +44,7 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Quản lý',
     icon: Users,
     href: '/dashboard/hr',
-    roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN, UserRole.EMPLOYEE],
+    roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN],
     children: [
       {
         label: 'Nhân viên',
