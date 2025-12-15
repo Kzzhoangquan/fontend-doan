@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Plus, Edit2, Trash2, Settings, Package } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, Settings, Package, AlertCircle } from 'lucide-react';
 import { 
   assetService, 
   categoryService, 
@@ -17,6 +17,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
+import toast, { Toaster } from 'react-hot-toast';
 
 // ✅ Status mapping theo đúng Backend Entity
 const STATUS_MAP: Record<AssetStatus, { label: string; variant: string }> = {
@@ -57,8 +58,12 @@ export default function AssetsPage() {
   
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDeleteCategoryModal, setShowDeleteCategoryModal] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [deletingAsset, setDeletingAsset] = useState<Asset | null>(null);
+  const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [assetForm, setAssetForm] = useState({
@@ -154,7 +159,7 @@ export default function AssetsPage() {
 
   const handleSaveAsset = async () => {
     if (!assetForm.asset_code || !assetForm.asset_name || !assetForm.category_id) {
-      alert('Vui lòng điền đầy đủ thông tin bắt buộc!');
+      toast.error('Vui lòng điền đầy đủ thông tin bắt buộc!');
       return;
     }
 
@@ -163,31 +168,40 @@ export default function AssetsPage() {
       if (editingAsset) {
         const { asset_code, ...updateData } = assetForm;
         await assetService.update(editingAsset.id, updateData);
-        alert('Cập nhật tài sản thành công!');
+        toast.success('Cập nhật tài sản thành công!');
       } else {
         await assetService.create(assetForm);
-        alert('Thêm tài sản thành công!');
+        toast.success('Thêm tài sản thành công!');
       }
       setShowAssetModal(false);
       fetchAssets();
     } catch (err: any) {
       console.error('Error saving asset:', err);
-      alert(err.response?.data?.message || 'Không thể lưu tài sản');
+      toast.error(err.response?.data?.message || 'Không thể lưu tài sản');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDeleteAsset = async (id: number, name: string) => {
-    if (!confirm(`Bạn có chắc muốn xóa tài sản "${name}"?`)) return;
+  const openDeleteModal = (asset: Asset) => {
+    setDeletingAsset(asset);
+    setShowDeleteModal(true);
+  };
 
+  const handleDeleteAsset = async () => {
+    if (!deletingAsset) return;
+    
+    setSubmitting(true);
     try {
-      await assetService.delete(id);
-      alert('Xóa tài sản thành công!');
+      await assetService.delete(deletingAsset.id);
+      toast.success('Xóa tài sản thành công!');
+      setShowDeleteModal(false);
       fetchAssets();
     } catch (err: any) {
       console.error('Error deleting asset:', err);
-      alert(err.response?.data?.message || 'Không thể xóa tài sản');
+      toast.error(err.response?.data?.message || 'Không thể xóa tài sản');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -209,7 +223,7 @@ export default function AssetsPage() {
 
   const handleSaveCategory = async () => {
     if (!categoryForm.category_name.trim()) {
-      alert('Vui lòng nhập tên loại tài sản!');
+      toast.error('Vui lòng nhập tên loại tài sản!');
       return;
     }
 
@@ -218,37 +232,46 @@ export default function AssetsPage() {
       if (editingCategory) {
         const { category_code, ...updateData } = categoryForm;
         await categoryService.update(editingCategory.id, updateData);
-        alert('Cập nhật loại tài sản thành công!');
+        toast.success('Cập nhật loại tài sản thành công!');
         setEditingCategory(null);
       } else {
         await categoryService.create(categoryForm);
-        alert('Thêm loại tài sản thành công!');
+        toast.success('Thêm loại tài sản thành công!');
       }
       setCategoryForm({ category_code: '', category_name: '', description: '' });
       fetchCategories();
     } catch (err: any) {
       console.error('Error saving category:', err);
-      alert(err.response?.data?.message || 'Không thể lưu loại tài sản');
+      toast.error(err.response?.data?.message || 'Không thể lưu loại tài sản');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDeleteCategory = async (id: number, name: string) => {
-    if (!confirm(`Bạn có chắc muốn xóa loại tài sản "${name}"?`)) return;
+  const openDeleteCategoryModal = (category: Category) => {
+    setDeletingCategory(category);
+    setShowDeleteCategoryModal(true);
+  };
 
+  const handleDeleteCategory = async () => {
+    if (!deletingCategory) return;
+    
+    setSubmitting(true);
     try {
-      await categoryService.delete(id);
-      alert('Xóa loại tài sản thành công!');
+      await categoryService.delete(deletingCategory.id);
+      toast.success('Xóa loại tài sản thành công!');
+      setShowDeleteCategoryModal(false);
       fetchCategories();
     } catch (err: any) {
       console.error('Error deleting category:', err);
       const message = err.response?.data?.message || 'Không thể xóa loại tài sản';
       if (message.includes('đang được sử dụng') || message.includes('in use')) {
-        alert('Không thể xóa loại tài sản đang được sử dụng!');
+        toast.error('Không thể xóa loại tài sản đang được sử dụng!');
       } else {
-        alert(message);
+        toast.error(message);
       }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -272,6 +295,8 @@ export default function AssetsPage() {
 
   return (
     <div className="space-y-6">
+      <Toaster position="top-right" toastOptions={{className: '',style: {animation: 'slide-in 0.3s ease-out',},}}/>
+      
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -326,7 +351,7 @@ export default function AssetsPage() {
 
       {/* Filters */}
       <Card>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-gray-600">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Input
             placeholder="Tìm theo tên, mã tài sản..."
             value={searchTerm}
@@ -342,7 +367,7 @@ export default function AssetsPage() {
               setFilterCategory(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-gray-500"
           >
             <option value="">Tất cả loại</option>
             {categories.map(cat => (
@@ -355,7 +380,7 @@ export default function AssetsPage() {
               setFilterStatus(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-gray-500"
           >
             <option value="">Tất cả trạng thái</option>
             {STATUSES.map(status => (
@@ -403,10 +428,10 @@ export default function AssetsPage() {
                   ) : (
                     assets.map(asset => (
                       <tr key={asset.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{asset.asset_code}</td>
-                        <td className="px-6 py-4 text-sm text-gray-900">{asset.asset_name}</td>
+                        <td className="px-6 py-4 text-sm font-medium text-gray-600">{asset.asset_code}</td>
+                        <td className="px-6 py-4 text-sm text-gray-600">{asset.asset_name}</td>
                         <td className="px-6 py-4 text-sm text-gray-600">{asset.category.category_name}</td>
-                        <td className="px-6 py-4 text-sm text-gray-900 font-medium">
+                        <td className="px-6 py-4 text-sm text-gray-600 font-medium">
                           {asset.price ? `${Number(asset.price).toLocaleString('vi-VN')} ₫` : 'N/A'}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-600">
@@ -423,7 +448,7 @@ export default function AssetsPage() {
                                 <Edit2 className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => handleDeleteAsset(asset.id, asset.asset_name)}
+                                onClick={() => openDeleteModal(asset)}
                                 className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -493,24 +518,26 @@ export default function AssetsPage() {
       >
         <div className="space-y-4 text-gray-700">
           <Input
-            label="Mã tài sản *"
+            label="Mã tài sản"
             value={assetForm.asset_code}
             onChange={(e) => setAssetForm({...assetForm, asset_code: e.target.value})}
             placeholder="Nhập mã tài sản"
             disabled={!!editingAsset}
+            required
           />
           <Input
-            label="Tên tài sản *"
+            label="Tên tài sản"
             value={assetForm.asset_name}
             onChange={(e) => setAssetForm({...assetForm, asset_name: e.target.value})}
             placeholder="Nhập tên tài sản"
+            required
           />
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Loại tài sản *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Loại tài sản<span className="text-red-500">*</span></label>
             <select
               value={assetForm.category_id}
               onChange={(e) => setAssetForm({...assetForm, category_id: parseInt(e.target.value)})}
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-gray-500"
             >
               <option value={0}>Chọn loại</option>
               {categories.map(cat => (
@@ -524,19 +551,21 @@ export default function AssetsPage() {
             value={assetForm.price}
             onChange={(e) => setAssetForm({...assetForm, price: parseInt(e.target.value) || 0})}
             placeholder="Nhập giá trị"
+            required
           />
           <Input
             label="Ngày mua"
             type="date"
             value={assetForm.purchase_date}
             onChange={(e) => setAssetForm({...assetForm, purchase_date: e.target.value})}
+            required
           />
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Trạng thái</label>
             <select
               value={assetForm.status}
               onChange={(e) => setAssetForm({...assetForm, status: e.target.value as AssetStatus})}
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-gray-500"
             >
               {STATUSES.map(status => (
                 <option key={status} value={status}>{STATUS_MAP[status].label}</option>
@@ -567,13 +596,14 @@ export default function AssetsPage() {
         title="Quản lý Danh mục Loại Tài sản"
         size="lg"
       >
-        <div className="space-y-4 text-gray-700">
+        <div className="space-y-4">
           <div className="space-y-3">
             {!editingCategory && (
               <Input
                 placeholder="Mã loại danh mục"
                 value={categoryForm.category_code}
                 onChange={(e) => setCategoryForm({...categoryForm, category_code: e.target.value})}
+                className="text-gray-800"
               />
             )}
             <div className="flex gap-2">
@@ -581,7 +611,7 @@ export default function AssetsPage() {
                 placeholder="Tên loại danh mục"
                 value={categoryForm.category_name}
                 onChange={(e) => setCategoryForm({...categoryForm, category_name: e.target.value})}
-                className="flex-1"
+                className="flex-1 text-gray-800"
               />
               <Button onClick={handleSaveCategory} disabled={submitting}>
                 {submitting ? 'Đang lưu...' : editingCategory ? 'Cập nhật' : 'Thêm'}
@@ -612,8 +642,8 @@ export default function AssetsPage() {
               <tbody className="divide-y">
                 {categories.map(cat => (
                   <tr key={cat.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-mono">{cat.category_code}</td>
-                    <td className="px-4 py-3 text-sm">{cat.category_name}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-gray-600">{cat.category_code}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{cat.category_name}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-2">
                         <button
@@ -623,7 +653,7 @@ export default function AssetsPage() {
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteCategory(cat.id, cat.category_name)}
+                          onClick={() => openDeleteCategoryModal(cat)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -636,6 +666,85 @@ export default function AssetsPage() {
             </table>
           </div>
         </div>
+      </Modal>
+
+      {/* MODAL XÁC NHẬN XÓA TÀI SẢN */}
+      <Modal 
+        isOpen={showDeleteModal} 
+        onClose={() => setShowDeleteModal(false)} 
+        title="Xác nhận Xóa Tài sản" 
+        size="md"
+      >
+        {deletingAsset && (
+          <div className="text-center py-6">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Trash2 size={44} className="text-red-600" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">
+              Bạn có chắc chắn muốn xóa?
+            </h3>
+            <div className="bg-gray-50 p-5 rounded-xl mb-6 text-left">
+              <p className="font-bold text-lg text-gray-900">{deletingAsset.asset_name}</p>
+              <p className="text-gray-700">Mã: <span className="font-bold">{deletingAsset.asset_code}</span></p>
+              <p className="text-gray-700">Loại: <span className="font-bold">{deletingAsset.category.category_name}</span></p>
+            </div>       
+            <div className="flex gap-4">
+              <Button 
+                onClick={handleDeleteAsset} 
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold text-lg py-4" 
+                disabled={submitting}
+              >
+                {submitting ? 'Đang xóa...' : 'Xác nhận xóa'}
+              </Button>
+              <Button 
+                variant="secondary" 
+                onClick={() => setShowDeleteModal(false)} 
+                className="flex-1 font-bold text-lg py-4"
+              >
+                Hủy bỏ
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* MODAL XÁC NHẬN XÓA LOẠI TÀI SẢN */}
+      <Modal 
+        isOpen={showDeleteCategoryModal} 
+        onClose={() => setShowDeleteCategoryModal(false)} 
+        title="Xác nhận Xóa Loại Tài sản" 
+        size="md"
+      >
+        {deletingCategory && (
+          <div className="text-center py-6">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertCircle size={44} className="text-red-600" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">
+              Bạn có chắc chắn muốn xóa?
+            </h3>
+            <div className="bg-gray-50 p-5 rounded-xl mb-6 text-left">
+              <p className="font-bold text-lg text-gray-900">{deletingCategory.category_name}</p>
+              <p className="text-gray-700">Mã: <span className="font-bold">{deletingCategory.category_code}</span></p>
+            </div>
+            <div className="flex gap-4">
+              <Button 
+                onClick={handleDeleteCategory} 
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold text-lg py-4" 
+                disabled={submitting}
+              >
+                {submitting ? 'Đang xóa...' : 'Xác nhận xóa'}
+              </Button>
+              <Button 
+                variant="secondary" 
+                onClick={() => setShowDeleteCategoryModal(false)} 
+                className="flex-1 font-bold text-lg py-4"
+              >
+                Hủy bỏ
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

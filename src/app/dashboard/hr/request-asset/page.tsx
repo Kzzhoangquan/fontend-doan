@@ -12,6 +12,7 @@ import {
 } from '@/lib/api/services/request.service';
 import { useAuth } from '@/hooks/useAuth';
 import { UserRole } from '@/lib/constants/roles';
+import toast, { Toaster } from 'react-hot-toast';
 
 const REQUEST_TYPES: Record<RequestType, string> = {
   PURCHASE: 'Cấp mới', REPAIR: 'Sửa chữa', MAINTENANCE: 'Bảo trì',
@@ -143,6 +144,7 @@ export default function ManagerRequestPage() {
 
   return (
     <div className="space-y-6">
+      <Toaster position="top-right" toastOptions={{className: '',style: {animation: 'slide-in 0.3s ease-out',},}}/>
       {/* Header */}
       <div className="bg-white rounded-lg shadow-sm p-6 flex justify-between items-center">
         <div>
@@ -188,44 +190,73 @@ export default function ManagerRequestPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm p-4 grid grid-cols-4 gap-3 text-gray-600">
-        <div className="relative">
-          <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="Tìm kiếm..." 
-            value={searchTerm} 
-            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} 
-            className="w-full pl-10 pr-3 py-2 text-sm border rounded-lg" 
-          />
-        </div>
-        {currentView === 'all' && (
-          <select 
-            value={filterStatus} 
-            onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }} 
-            className="px-3 py-2 text-sm border rounded-lg"
-          >
-            <option value="">Tất cả trạng thái</option>
-            {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
-        )}
-        <select 
-          value={filterType} 
-          onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }} 
-          className="px-3 py-2 text-sm border rounded-lg"
-        >
-          <option value="">Tất cả loại</option>
-          {Object.entries(REQUEST_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-        <select 
-          value={filterPriority} 
-          onChange={(e) => { setFilterPriority(e.target.value); setCurrentPage(1); }} 
-          className="px-3 py-2 text-sm border rounded-lg"
-        >
-          <option value="">Tất cả ưu tiên</option>
-          {Object.entries(PRIORITY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-      </div>
+<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+  <div className="relative">
+    <Search className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
+    <input
+      type="text"
+      placeholder="Tìm kiếm..."
+      value={searchTerm}
+      onChange={(e) => {
+        setSearchTerm(e.target.value);
+        setCurrentPage(1);
+      }}
+      className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-gray-400"
+    />
+  </div>
+
+  {currentView === 'all' && (
+    <select
+      value={filterStatus}
+      onChange={(e) => {
+        setFilterStatus(e.target.value);
+        setCurrentPage(1);
+      }}
+      className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+    >
+      <option value="">Tất cả trạng thái</option>
+      {Object.entries(STATUS_LABELS).map(([k, v]) => (
+        <option key={k} value={k}>
+          {v}
+        </option>
+      ))}
+    </select>
+  )}
+
+  {/* Type Filter */}
+  <select
+    value={filterType}
+    onChange={(e) => {
+      setFilterType(e.target.value);
+      setCurrentPage(1);
+    }}
+    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+  >
+    <option value="">Tất cả loại</option>
+    {Object.entries(REQUEST_TYPES).map(([k, v]) => (
+      <option key={k} value={k}>
+        {v}
+      </option>
+    ))}
+  </select>
+
+  {/* Priority Filter */}
+  <select
+    value={filterPriority}
+    onChange={(e) => {
+      setFilterPriority(e.target.value);
+      setCurrentPage(1);
+    }}
+    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+  >
+    <option value="">Tất cả ưu tiên</option>
+    {Object.entries(PRIORITY_LABELS).map(([k, v]) => (
+      <option key={k} value={k}>
+        {v}
+      </option>
+    ))}
+  </select>
+</div>
 
       {/* Table */}
       {loading ? (
