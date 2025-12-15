@@ -17,6 +17,7 @@ import { UserRole } from '@/lib/constants/roles';
 
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
+import toast, { Toaster } from 'react-hot-toast';
 
 const STATUS_MAP: Record<AssignmentStatus, { label: string; color: string }> = {
   ASSIGNED: { label: 'Đang sử dụng', color: 'bg-green-100 text-green-800' },
@@ -128,17 +129,17 @@ export default function AssetAssignmentPage() {
 
   const handleAssignAsset = async () => {
     if (!assignForm.asset_id || !assignForm.employee_id) {
-      alert('Vui lòng chọn đầy đủ tài sản và nhân viên!');
+      toast.error('Vui lòng chọn đầy đủ tài sản và nhân viên!');
       return;
     }
     setSubmitting(true);
     try {
       await assignmentService.create(assignForm, user?.id);
-      alert('Phân công tài sản thành công!');
+      toast.success('Phân công tài sản thành công!');
       setShowAssignModal(false);
       fetchAssignments();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Không thể phân công tài sản');
+      toast.error(err.response?.data?.message || 'Không thể phân công tài sản');
     } finally {
       setSubmitting(false);
     }
@@ -160,11 +161,11 @@ export default function AssetAssignmentPage() {
     setSubmitting(true);
     try {
       await assignmentService.returnAssignment(selectedAssignment.id, returnForm, user?.id);
-      alert('Thu hồi tài sản thành công!');
+      toast.success('Thu hồi tài sản thành công!');
       setShowReturnModal(false);
       fetchAssignments();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Không thể thu hồi tài sản');
+      toast.error(err.response?.data?.message || 'Không thể thu hồi tài sản');
     } finally {
       setSubmitting(false);
     }
@@ -181,6 +182,7 @@ export default function AssetAssignmentPage() {
 
   return (
     <div className="space-y-6">
+      <Toaster position="top-right" toastOptions={{className: '',style: {animation: 'slide-in 0.3s ease-out',},}}/>
       {/* Header */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <div className="flex justify-between items-center">
@@ -230,7 +232,7 @@ export default function AssetAssignmentPage() {
               placeholder="Tìm theo tên NV, mã/tên TS..."
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-gray-900 placeholder-gray-500"
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-gray-800 placeholder-gray-400"
             />
           </div>
           
@@ -238,7 +240,7 @@ export default function AssetAssignmentPage() {
           <select
             value={filterDepartment}
             onChange={(e) => { setFilterDepartment(e.target.value); setCurrentPage(1); }}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-gray-900"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-gray-500"
           >
             <option value="">Tất cả phòng ban</option>
             {departments.map(dept => (
@@ -251,7 +253,7 @@ export default function AssetAssignmentPage() {
           <select
             value={filterStatus}
             onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-gray-900"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-gray-500"
           >
             <option value="">Tất cả trạng thái</option>
             <option value="ASSIGNED">Đang sử dụng</option>
@@ -281,7 +283,6 @@ export default function AssetAssignmentPage() {
                     <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Mã TS</th>
                     <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Tên tài sản</th>
                     <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Nhân viên</th>
-                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Phòng ban</th> {/* ← THÊM CỘT MỚI */}
                     <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Ngày phân công</th>
                     {currentView === 'history' && <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Ngày trả</th>}
                     <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase">Trạng thái</th>
@@ -301,19 +302,12 @@ export default function AssetAssignmentPage() {
                   ) : (
                     filteredForView.map(assignment => (
                       <tr key={assignment.id} className="hover:bg-gray-50 transition">
-                        <td className="px-6 py-4 font-bold text-gray-900">{assignment.asset.asset_code}</td>
-                        <td className="px-6 py-4 font-semibold text-gray-900">{assignment.asset.asset_name}</td>
-                        <td className="px-6 py-4 font-semibold text-gray-900">{assignment.employee.full_name}</td>
-                        <td className="px-6 py-4 text-gray-700 font-medium">
-                          {(() => {
-                            const currentPositions = assignment.employee.employee_positions?.filter(ep => ep.is_current) || [];
-                            const primaryPosition = currentPositions[0];
-                            return primaryPosition?.department?.name || (assignment.employee as any).department_relation?.name || 'Chưa xác định';
-                          })()}
-                        </td>
-                        <td className="px-6 py-4 text-gray-700">{assignment.assignment_date}</td>
+                        <td className="px-6 py-4 font-bold text-gray-600">{assignment.asset.asset_code}</td>
+                        <td className="px-6 py-4 font-semibold text-gray-600">{assignment.asset.asset_name}</td>
+                        <td className="px-6 py-4 font-semibold text-gray-600">{assignment.employee.full_name}</td>
+                        <td className="px-6 py-4 text-gray-600">{assignment.assignment_date?.split('-').reverse().join('/')}</td>
                         {currentView === 'history' && (
-                          <td className="px-6 py-4 text-gray-700">{assignment.return_date || '-'}</td>
+                          <td className="px-6 py-4 text-gray-600">{assignment.return_date || '-'}</td>
                         )}
                         <td className="px-6 py-4">
                           <span className={`px-3 py-1.5 text-sm font-bold rounded-full ${STATUS_MAP[assignment.status].color}`}>
@@ -328,7 +322,7 @@ export default function AssetAssignmentPage() {
                             {canManage && assignment.status === 'ASSIGNED' && (
                               <button
                                 onClick={() => openReturnModal(assignment)}
-                                className="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 transition"
+                                className="px-4 py-2 bg-red-500 text-white text-sm font-bold rounded-lg hover:bg-red-700 transition"
                               >
                                 Thu hồi
                               </button>
@@ -369,11 +363,11 @@ export default function AssetAssignmentPage() {
       <Modal isOpen={showAssignModal} onClose={() => setShowAssignModal(false)} title="Phân công Tài sản" size="md">
         <div className="space-y-4 text-gray-700">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tài sản *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tài sản <span className="text-red-500">*</span></label>
             <select
               value={assignForm.asset_id}
               onChange={e => setAssignForm({ ...assignForm, asset_id: parseInt(e.target.value) })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-500"
             >
               <option value={0}>Chọn tài sản</option>
               {availableAssets.map(asset => (
@@ -385,11 +379,11 @@ export default function AssetAssignmentPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nhân viên *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nhân viên <span className="text-red-500">*</span></label>
             <select
               value={assignForm.employee_id}
               onChange={e => setAssignForm({ ...assignForm, employee_id: parseInt(e.target.value) })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-500"
             >
               <option value={0}>Chọn nhân viên</option>
               {employees.map(emp => {
@@ -406,12 +400,12 @@ export default function AssetAssignmentPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Ngày phân công *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ngày phân công <span className="text-red-500">*</span></label>
             <input
               type="date"
               value={assignForm.assignment_date}
               onChange={e => setAssignForm({ ...assignForm, assignment_date: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-500"
             />
           </div>
 
@@ -522,7 +516,7 @@ export default function AssetAssignmentPage() {
               <p className="text-gray-700">Đang sử dụng bởi: <span className="font-bold">{selectedAssignment.employee.full_name}</span></p>
             </div>
             <div className="flex gap-4">
-              <Button onClick={handleReturnAsset} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold text-lg py-4" disabled={submitting}>
+              <Button onClick={handleReturnAsset} className="flex-1 bg-blue-600 hover:bg-red-700 text-white font-bold text-lg py-4" disabled={submitting}>
                 {submitting ? 'Đang thu hồi...' : 'Xác nhận thu hồi'}
               </Button>
               <Button variant="secondary" onClick={() => setShowReturnModal(false)} className="flex-1 font-bold text-lg py-4">
