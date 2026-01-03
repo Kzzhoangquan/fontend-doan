@@ -14,6 +14,7 @@ import {
 } from '@/lib/api/services/request.service';
 import { categoryService, Category } from '@/lib/api/services/asset.service';
 import { useAuth } from '@/hooks/useAuth';
+import toast, { Toaster } from 'react-hot-toast';
 
 const REQUEST_TYPES: Record<RequestType, string> = {
   PURCHASE: 'Yêu cầu cấp mới',
@@ -141,15 +142,15 @@ export default function EmployeeRequestPage() {
 
   const handleSubmitRequest = async () => {
     if (requestForm.request_type === 'PURCHASE' && !requestForm.asset_name_suggest) {
-      alert('Vui lòng nhập tên tài sản đề xuất!');
+      toast.error('Vui lòng nhập tên tài sản đề xuất!');
       return;
     }
     if ((requestForm.request_type === 'REPAIR' || requestForm.request_type === 'MAINTENANCE') && !requestForm.asset_id_str) {
-      alert(`Vui lòng chọn tài sản cần ${requestForm.request_type === 'REPAIR' ? 'sửa chữa' : 'bảo trì'}!`);
+      toast.error(`Vui lòng chọn tài sản cần ${requestForm.request_type === 'REPAIR' ? 'sửa chữa' : 'bảo trì'}!`);
       return;
     }
     if (!requestForm.reason) {
-      alert('Vui lòng nhập lý do yêu cầu!');
+      toast.error('Vui lòng nhập lý do yêu cầu!');
       return;
     }
 
@@ -172,12 +173,12 @@ export default function EmployeeRequestPage() {
       }
 
       await requestService.create(payload);
-      alert('Gửi yêu cầu thành công!');
+      toast.success('Gửi yêu cầu thành công!');
       setCurrentView('my-requests');
       resetForm();
     } catch (err: any) {
       console.error('Error creating request:', err);
-      alert(err.response?.data?.message || 'Không thể gửi yêu cầu');
+      toast.error(err.response?.data?.message || 'Không thể gửi yêu cầu');
     } finally {
       setSubmitting(false);
     }
@@ -227,6 +228,7 @@ export default function EmployeeRequestPage() {
 
   return (
     <div className="space-y-6">
+      <Toaster position="top-right" toastOptions={{className: '',style: {animation: 'slide-in 0.3s ease-out',},}}/>
       {/* Header */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <div className="flex justify-between items-center">
@@ -344,9 +346,9 @@ export default function EmployeeRequestPage() {
         <>
           {/* My Assets */}
           {currentView === 'my-assets' && (
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden text-gray-600">
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
               <div className="p-4 bg-gray-50 border-b">
-                <h2 className="text-lg font-semibold">Tài sản được cấp phát</h2>
+                <h2 className="text-lg font-semibold text-gray-600">Tài sản được cấp phát</h2>
               </div>
               <table className="w-full">
                 <thead className="bg-gray-50 border-b">
@@ -361,10 +363,10 @@ export default function EmployeeRequestPage() {
                 <tbody className="divide-y">
                   {myAssets.map(asset => (
                     <tr key={asset.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-medium">{asset.asset_code}</td>
-                      <td className="px-6 py-4 text-sm">{asset.asset_name}</td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-600">{asset.asset_code}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{asset.asset_name}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">{asset.category?.category_name}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{asset.assignment_date}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{asset.assignment_date?.split('-').reverse().join('/')}</td>
                       <td className="px-6 py-4 text-sm">
                         <button onClick={() => startRepairRequest(asset)} className="text-orange-600 hover:text-orange-800 mr-3 font-semibold">
                           Sửa chữa
@@ -385,9 +387,9 @@ export default function EmployeeRequestPage() {
 
           {/* My Requests */}
           {currentView === 'my-requests' && (
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden text-gray-600">
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
               <div className="p-4 bg-gray-50 border-b">
-                <h2 className="text-lg font-semibold">Lịch sử yêu cầu của tôi</h2>
+                <h2 className="text-lg font-semibold text-gray-600">Lịch sử yêu cầu của tôi</h2>
               </div>
               <table className="w-full">
                 <thead className="bg-gray-50 border-b">
@@ -404,10 +406,10 @@ export default function EmployeeRequestPage() {
                 <tbody className="divide-y">
                   {requests.map(req => (
                     <tr key={req.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm">{REQUEST_TYPES[req.request_type]}</td>
-                      <td className="px-6 py-4 text-sm">{req.asset?.asset_name || req.asset_name_suggest}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{REQUEST_TYPES[req.request_type]}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{req.asset?.asset_name || req.asset_name_suggest}</td>
                       <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">{req.reason}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{req.request_date}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{req.request_date?.split('-').reverse().join('/')}</td>
                       <td className="px-6 py-4">
                         <span className={`px-3 py-1.5 text-xs font-bold rounded-full ${getPriorityColor(req.priority)}`}>
                           {PRIORITY_LABELS[req.priority]}
@@ -432,14 +434,14 @@ export default function EmployeeRequestPage() {
           {/* Create Request Form */}
           {currentView === 'create-request' && (
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-bold mb-6">Tạo yêu cầu mới</h2>
+              <h2 className="text-xl font-bold mb-6 text-gray-700">Tạo yêu cầu mới</h2>
               <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Loại yêu cầu *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Loại yêu cầu <span className="text-red-500">*</span></label>
                   <select
                     value={requestForm.request_type}
                     onChange={(e) => setRequestForm({ ...requestForm, request_type: e.target.value as RequestType, asset_id_str: '', asset_name_suggest: '' })}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg font-bold text-gray-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition"
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-600 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition"
                   >
                     <option value="PURCHASE">Yêu cầu cấp mới</option>
                     <option value="REPAIR">Yêu cầu sửa chữa</option>
@@ -450,11 +452,11 @@ export default function EmployeeRequestPage() {
                 {requestForm.request_type === 'PURCHASE' && (
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Loại tài sản</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Loại tài sản <span className="text-red-500">*</span></label>
                       <select
                         value={requestForm.category_id_str}
                         onChange={(e) => setRequestForm({ ...requestForm, category_id_str: e.target.value })}
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg font-bold text-gray-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-600 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
                       >
                         <option value="">Chọn loại tài sản</option>
                         {categories.map(cat => (
@@ -463,23 +465,23 @@ export default function EmployeeRequestPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Tên tài sản đề xuất *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Tên tài sản đề xuất <span className="text-red-500">*</span></label>
                       <input
                         type="text"
                         value={requestForm.asset_name_suggest}
                         onChange={(e) => setRequestForm({ ...requestForm, asset_name_suggest: e.target.value })}
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg font-bold text-gray-800 placeholder-gray-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-600 placeholder-gray-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
                         placeholder="VD: Laptop Dell XPS 15..."
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Số lượng</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Số lượng <span className="text-red-500">*</span></label>
                       <input
                         type="number"
                         value={requestForm.quantity}
                         onChange={(e) => setRequestForm({ ...requestForm, quantity: parseInt(e.target.value) || 1 })}
                         min="1"
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg font-bold text-gray-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-600 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
                       />
                     </div>
                   </>
@@ -487,11 +489,11 @@ export default function EmployeeRequestPage() {
 
                 {(requestForm.request_type === 'REPAIR' || requestForm.request_type === 'MAINTENANCE') && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Chọn tài sản *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Chọn tài sản <span className="text-red-500">*</span></label>
                     <select
                       value={requestForm.asset_id_str}
                       onChange={(e) => setRequestForm({ ...requestForm, asset_id_str: e.target.value })}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg font-bold text-gray-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-600 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
                     >
                       <option value="">Chọn tài sản từ danh sách của bạn</option>
                       {myAssets.map(asset => (
@@ -504,32 +506,32 @@ export default function EmployeeRequestPage() {
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Lý do yêu cầu *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Lý do yêu cầu <span className="text-red-500">*</span></label>
                   <textarea
                     value={requestForm.reason}
                     onChange={(e) => setRequestForm({ ...requestForm, reason: e.target.value })}
                     rows={5}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg font-bold text-gray-800 placeholder-gray-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none resize-none"
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-600 placeholder-gray-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none resize-none"
                     placeholder="Mô tả chi tiết lý do yêu cầu..."
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-5">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Ngày cần</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Ngày cần <span className="text-red-500">*</span></label>
                     <input
                       type="date"
                       value={requestForm.needed_date}
                       onChange={(e) => setRequestForm({ ...requestForm, needed_date: e.target.value })}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg font-bold text-gray-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-600 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Mức độ ưu tiên</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Mức độ ưu tiên <span className="text-red-500">*</span></label>
                     <select
                       value={requestForm.priority}
                       onChange={(e) => setRequestForm({ ...requestForm, priority: e.target.value as RequestPriority })}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg font-bold text-gray-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-600 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
                     >
                       <option value="LOW">Thấp</option>
                       <option value="MEDIUM">Trung bình</option>
@@ -545,7 +547,7 @@ export default function EmployeeRequestPage() {
                     type="text"
                     value={requestForm.image_url}
                     onChange={(e) => setRequestForm({ ...requestForm, image_url: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg font-bold text-gray-800 placeholder-gray-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-600 placeholder-gray-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
                     placeholder="https://..."
                   />
                 </div>

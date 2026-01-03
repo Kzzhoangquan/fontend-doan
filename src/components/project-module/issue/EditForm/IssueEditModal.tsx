@@ -70,7 +70,7 @@ export const IssueEditModal: React.FC<IssueEditModalProps> = ({
             setIssueCode(issue.issue_code);
             setIssueSummary(issue.summary);
         } catch (error) {
-            console.error('Error fetching issue info:', error);
+            // Error fetching issue info - silently fail
         }
     };
 
@@ -85,12 +85,9 @@ export const IssueEditModal: React.FC<IssueEditModalProps> = ({
             onDelete?.();
             onClose();
             
-            setTimeout(() => {
-                window.location.reload();
-            }, 500);
-        } catch (error: any) {
-            console.error('Error deleting issue:', error);
-            const errorMessage = error.response?.data?.message || t('issue.messages.deleteFailed');
+            // Modal will close and parent will refresh
+        } catch (error: unknown) {
+            const errorMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || t('issue.messages.deleteFailed');
             message.error(errorMessage);
         } finally {
             setDeleting(false);

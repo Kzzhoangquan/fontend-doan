@@ -11,6 +11,7 @@ import { ROUTES } from '@/lib/constants/routes';
 import { ChevronLeft, ChevronRight, ChevronDown, FolderKanban, Loader2, Plus, Grid3x3 } from 'lucide-react';
 import { CreateProjectModal } from '@/components/project-module/CreateProjectModal';
 import { AllProjectsModal } from '@/components/project-module/AllProjectsModal';
+import { useI18n } from '@/hooks/useI18n';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
   const { hasAnyRole, user } = useAuth();
+  const { t } = useI18n();
   const { projects, loading: projectsLoading, refetch: refetchProjects } = useProjects();
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -99,6 +101,42 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
     refetchProjects(); // Refresh danh sách projects
   };
 
+  // Function để translate menu item label
+  const translateMenuItem = (item: MenuItem): MenuItem => {
+    const labelMap: Record<string, string> = {
+      'Trang chủ': t('menu.home'),
+      'Quản lý': t('menu.management'),
+      'Nhân viên': t('menu.employees'),
+      'Phòng ban': t('menu.departments'),
+      'Vị trí': t('menu.positions'),
+      'Tài sản': t('menu.assets'),
+      'Danh sách': t('menu.assetsList'),
+      'Phân công': t('menu.assetAssignment'),
+      'Phê duyệt': t('menu.assetApproval'),
+      'Công ca': t('menu.attendance'),
+      'Chấm công': t('menu.attendanceEmployee'),
+      'Yêu cầu': t('menu.requests'),
+      'Yêu cầu nghỉ phép': t('menu.leaveRequest'),
+      'Cài đặt Lương': t('menu.salarySettings'),
+      'Quản lý Lương': t('menu.salaryManagement'),
+      'Bảng lương': t('menu.salaryTable'),
+      'Quản lý dự án': t('menu.projectManagement'),
+      'Kế toán': t('menu.accounting'),
+      'Quản lý lương': t('menu.accountingSalary'),
+      'Báo cáo': t('menu.reports'),
+      'Tạo yêu cầu cấp tài sản': t('menu.createAssetRequest'),
+      'Cài đặt': t('menu.settings'),
+      'Thông tin cá nhân': t('menu.profile'),
+      'Phân quyền': t('menu.permissions'),
+    };
+
+    return {
+      ...item,
+      label: labelMap[item.label] || item.label,
+      children: item.children ? item.children.map(translateMenuItem) : undefined,
+    };
+  };
+
   const filterMenuItems = (items: MenuItem[]): MenuItem[] => {
     return items
       .filter(item => hasAnyRole(item.roles))
@@ -114,19 +152,23 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
 
           return {
             ...item,
+            label: translateMenuItem(item).label,
             children: projectChildren, // CHỈ có 5 projects mới nhất
           };
         }
 
+        const translatedItem = translateMenuItem(item);
         return {
-          ...item,
-          children: item.children ? filterMenuItems(item.children) : undefined,
+          ...translatedItem,
+          children: translatedItem.children ? filterMenuItems(translatedItem.children) : undefined,
         };
       })
       .filter(item => !item.children || item.children.length > 0);
   };
 
-  const filteredMenuItems = useMemo(() => filterMenuItems(MENU_ITEMS), [user?.roles, recentProjects, projectsLoading]);
+  const filteredMenuItems = useMemo(() => {
+    return filterMenuItems(MENU_ITEMS);
+  }, [user?.roles, recentProjects, projectsLoading, hasAnyRole]);
 
   const renderMenuItem = (item: MenuItem, depth: number = 0, parentHref?: string) => {
     const hasChildren = item.children && item.children.length > 0;
@@ -235,7 +277,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
                   className="w-full flex items-center gap-2 px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-xs font-medium"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Tạo dự án mới</span>
+                  <span>{t('menu.createProject')}</span>
                 </button>
 
                 {/* Button Xem tất cả dự án */}
@@ -245,7 +287,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
                     className="w-full flex items-center gap-2 px-3 py-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors text-xs font-medium"
                   >
                     <Grid3x3 className="w-4 h-4" />
-                    <span>Xem tất cả ({projects.length})</span>
+                    <span>{t('menu.viewAllProjects')} ({projects.length})</span>
                   </button>
                 )}
 

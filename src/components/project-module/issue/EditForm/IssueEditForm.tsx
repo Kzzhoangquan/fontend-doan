@@ -147,9 +147,6 @@ export const IssueEditForm: React.FC<IssueEditFormProps> = ({
 
             message.success(t('issue.messages.updateSuccess'));
             onSuccess?.();
-            setTimeout(() => {
-                window.location.reload();
-            }, 500);
         } catch (error) {
             console.error('Error updating issue:', error);
             message.error(t('issue.messages.updateFailed'));

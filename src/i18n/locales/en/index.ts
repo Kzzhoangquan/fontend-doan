@@ -8,6 +8,7 @@ import project from './project-module/project.json';
 import team from './project-module/team.json';
 import sprint from './project-module/sprint.json';
 import issue from './project-module/issue.json';
+import hr from './hr.json';
 
 
 export default {
@@ -20,5 +21,6 @@ export default {
   ...project,
   ...team,
   ...sprint,
-  ...issue,
+  ...issue,  ...hr,
+
 };

@@ -7,11 +7,13 @@ import { Building2, Search, Plus, Edit, Trash2, Eye, Loader2, List, Network, Use
 import { departmentService, Department, CreateDepartmentDto, UpdateDepartmentDto } from '@/lib/api/services/department.service';
 import { useAuth } from '@/hooks/useAuth';
 import { UserRole } from '@/lib/constants/roles';
+import { useI18n } from '@/hooks/useI18n';
 
 type ViewMode = 'list' | 'tree';
 
 export default function DepartmentsPage() {
   const { hasRole } = useAuth();
+  const { t } = useI18n();
   const [api, contextHolder] = notification.useNotification();
 
   // States
@@ -76,9 +78,10 @@ export default function DepartmentsPage() {
       setDepartments(data.data);
       setTotal(data.total);
       setTotalPages(data.totalPages);
-    } catch (err: any) {
-      console.error('Error fetching departments:', err);
-      setError(err.response?.data?.message || 'Không thể tải danh sách phòng ban');
+    } catch (err: unknown) {
+      // Error fetching departments
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || t('departments.loadError');
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -103,9 +106,10 @@ export default function DepartmentsPage() {
       };
       collectIds(data);
       setExpandedNodes(allIds);
-    } catch (err: any) {
-      console.error('Error fetching tree:', err);
-      setError(err.response?.data?.message || 'Không thể tải sơ đồ cây phòng ban');
+    } catch (err: unknown) {
+      // Error fetching tree
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || t('departments.loadError');
+      setError(errorMessage);
     } finally {
       setTreeLoading(false);
     }
@@ -115,8 +119,8 @@ export default function DepartmentsPage() {
     try {
       const data = await departmentService.getAll({ pageSize: 1000 });
       setAllDepartments(data.data);
-    } catch (err: any) {
-      console.error('Error fetching all departments:', err);
+    } catch (err: unknown) {
+      // Error fetching all departments
     }
   };
 
@@ -138,17 +142,18 @@ export default function DepartmentsPage() {
   };
 
   const handleDelete = async (id: number, name: string) => {
-    if (!confirm(`Bạn có chắc muốn xóa phòng ban "${name}"?`)) return;
+    if (!confirm(t('departments.deleteConfirm', { name }))) return;
 
     try {
       await departmentService.delete(id);
       fetchDepartments();
       fetchTreeData();
       fetchAllDepartments();
-      showNotification('success', 'Xóa phòng ban thành công!');
-    } catch (err: any) {
-      console.error('Error deleting department:', err);
-      showNotification('error', 'Không thể xóa phòng ban', err.response?.data?.message);
+      showNotification('success', t('departments.deleteSuccess'));
+    } catch (err: unknown) {
+      // Error deleting department
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      showNotification('error', t('departments.deleteError'), errorMessage);
     }
   };
 
@@ -176,8 +181,9 @@ export default function DepartmentsPage() {
         parent_id: department.parent_id || undefined,
       });
       setModalMode('edit');
-    } catch (err: any) {
-      showNotification('error', 'Không thể tải chi tiết phòng ban', err.response?.data?.message);
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể tải chi tiết phòng ban';
+      showNotification('error', 'Không thể tải chi tiết phòng ban', errorMessage);
     } finally {
       setFormSubmitting(false);
     }
@@ -200,8 +206,9 @@ export default function DepartmentsPage() {
       setDepartmentEmployees(employees);
       setDepartmentStats(stats);
       setModalMode('view');
-    } catch (err: any) {
-      showNotification('error', 'Không thể tải chi tiết phòng ban', err.response?.data?.message);
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể tải chi tiết phòng ban';
+      showNotification('error', 'Không thể tải chi tiết phòng ban', errorMessage);
     } finally {
       setLoadingDetail(false);
     }
@@ -237,18 +244,19 @@ export default function DepartmentsPage() {
     try {
       if (modalMode === 'create') {
         await departmentService.create(payload as CreateDepartmentDto);
-        showNotification('success', 'Tạo phòng ban thành công');
+        showNotification('success', t('departments.createSuccess'));
       } else if (modalMode === 'edit' && selectedDepartment) {
         await departmentService.update(selectedDepartment.id, payload as UpdateDepartmentDto);
-        showNotification('success', 'Cập nhật phòng ban thành công');
+        showNotification('success', t('departments.updateSuccess'));
       }
       closeModal();
       fetchDepartments();
       fetchTreeData();
       fetchAllDepartments();
-    } catch (err: any) {
-      const message = err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại';
-      setFormError(Array.isArray(message) ? message.join(', ') : message);
+    } catch (err: unknown) {
+      const errorData = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data;
+      const message = errorData?.message || 'Có lỗi xảy ra, vui lòng thử lại';
+      setFormError(Array.isArray(message) ? message.join(', ') : String(message));
     } finally {
       setFormSubmitting(false);
     }
@@ -354,8 +362,8 @@ export default function DepartmentsPage() {
               <Building2 className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Quản lý phòng ban</h1>
-              <p className="text-sm text-gray-500">Tổng số: {total} phòng ban</p>
+              <h1 className="text-2xl font-bold text-gray-900">{t('departments.title')}</h1>
+              <p className="text-sm text-gray-500">{t('common.total')}: {total} {t('departments.departmentName').toLowerCase()}</p>
             </div>
           </div>
           {canManage && (
@@ -364,7 +372,7 @@ export default function DepartmentsPage() {
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Plus className="w-5 h-5" />
-              Thêm phòng ban
+              {t('departments.addDepartment')}
             </button>
           )}
         </div>
@@ -381,7 +389,7 @@ export default function DepartmentsPage() {
               }`}
             >
               <List className="w-4 h-4" />
-              Danh sách
+              {t('departments.listView')}
             </button>
             <button
               onClick={() => setViewMode('tree')}
@@ -392,7 +400,7 @@ export default function DepartmentsPage() {
               }`}
             >
               <Network className="w-4 h-4" />
-              Sơ đồ cây
+              {t('departments.treeView')}
             </button>
           </div>
 
@@ -402,7 +410,7 @@ export default function DepartmentsPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Tìm kiếm theo tên, mô tả..."
+                placeholder={t('departments.searchPlaceholder')}
                 value={search}
                 onChange={(e) => handleSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
@@ -424,7 +432,7 @@ export default function DepartmentsPage() {
         <div className="bg-white rounded-xl shadow-sm p-12">
           <div className="flex flex-col items-center justify-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-            <p className="text-gray-600">Đang tải dữ liệu...</p>
+            <p className="text-gray-600">{t('common.loading')}</p>
           </div>
         </div>
       ) : (
@@ -438,17 +446,17 @@ export default function DepartmentsPage() {
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
-                          Tên phòng ban
+                          {t('departments.departmentName')}
                         </th>
                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
-                          Mô tả
+                          {t('common.description')}
                         </th>
                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
-                          Phòng ban cha
+                          {t('departments.parentDepartment')}
                         </th>
                         {canManage && (
                           <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase">
-                            Thao tác
+                            {t('common.actions')}
                           </th>
                         )}
                       </tr>
@@ -501,9 +509,9 @@ export default function DepartmentsPage() {
                 {departments.length === 0 && !loading && (
                   <div className="text-center py-12">
                     <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 text-lg font-medium">Không tìm thấy phòng ban</p>
+                    <p className="text-gray-500 text-lg font-medium">{t('common.noData')}</p>
                     <p className="text-gray-400 text-sm mt-1">
-                      {search ? 'Thử thay đổi từ khóa tìm kiếm' : 'Thêm phòng ban mới để bắt đầu'}
+                      {search ? t('common.search') : t('departments.addDepartment')}
                     </p>
                   </div>
                 )}
@@ -588,9 +596,9 @@ export default function DepartmentsPage() {
           <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
               <h2 className="text-xl font-bold text-gray-900">
-                {modalMode === 'create' && 'Thêm phòng ban mới'}
-                {modalMode === 'edit' && 'Chỉnh sửa phòng ban'}
-                {modalMode === 'view' && 'Chi tiết phòng ban'}
+                {modalMode === 'create' && t('departments.createTitle')}
+                {modalMode === 'edit' && t('departments.editTitle')}
+                {modalMode === 'view' && t('departments.viewTitle')}
               </h2>
               <button
                 onClick={closeModal}
@@ -655,10 +663,10 @@ export default function DepartmentsPage() {
 
                     {/* Department Info */}
                     <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                      <DetailField label="Tên phòng ban" value={selectedDepartment.name} />
-                      <DetailField label="Mô tả" value={selectedDepartment.description || 'N/A'} />
+                      <DetailField label={t('departments.departmentName')} value={selectedDepartment.name} />
+                      <DetailField label={t('common.description')} value={selectedDepartment.description || 'N/A'} />
                       <DetailField
-                        label="Phòng ban cha"
+                        label={t('departments.parentDepartment')}
                         value={selectedDepartment.parent?.name || 'N/A'}
                       />
                     </div>
@@ -744,7 +752,7 @@ export default function DepartmentsPage() {
             ) : (
               <form onSubmit={handleSubmit} className="p-6 space-y-4">
                 <InputField
-                  label="Tên phòng ban"
+                  label={t('departments.departmentName')}
                   value={formData.name}
                   onChange={(value) => handleFormChange('name', value)}
                   required
@@ -753,7 +761,7 @@ export default function DepartmentsPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phòng ban cha
+                    {t('departments.parentDepartment')}
                   </label>
                   <select
                     value={formData.parent_id || ''}
@@ -763,7 +771,7 @@ export default function DepartmentsPage() {
                     disabled={formSubmitting}
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
                   >
-                    <option value="">Không có (phòng ban gốc)</option>
+                    <option value="">{t('departments.noParent')}</option>
                     {allDepartments
                       .filter((d) => d.id !== selectedDepartment?.id)
                       .map((dept) => (
@@ -775,7 +783,7 @@ export default function DepartmentsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('common.description')}</label>
                   <textarea
                     value={formData.description || ''}
                     onChange={(e) => handleFormChange('description', e.target.value)}
@@ -799,7 +807,7 @@ export default function DepartmentsPage() {
                     className="px-6 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors disabled:opacity-60 flex items-center gap-2"
                   >
                     {formSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                    {modalMode === 'create' ? 'Tạo phòng ban' : 'Lưu thay đổi'}
+                    {modalMode === 'create' ? t('common.create') : t('common.save')}
                   </button>
                 </div>
               </form>
