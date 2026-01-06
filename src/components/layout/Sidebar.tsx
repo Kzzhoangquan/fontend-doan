@@ -77,7 +77,28 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
   const isActive = (href: string) => {
     // Exact match
     if (pathname === href) return true;
-    
+
+    // Check for attendance routes with query params
+    if (href.includes('/dashboard/hr/attendance')) {
+      // For attendance menu items, check if current path matches the href pattern
+      if (href.includes('?view=all')) {
+        return pathname === '/dashboard/hr/attendance' && window.location.search.includes('view=all');
+      } else if (href.includes('?view=my')) {
+        return pathname === '/dashboard/hr/attendance' && window.location.search.includes('view=my');
+      }
+      return pathname === '/dashboard/hr/attendance';
+    }
+
+    if (href.includes('/dashboard/hr/requests')) {
+      // For requests menu items, check if current path matches the href pattern
+      if (href.includes('?view=all')) {
+        return pathname === '/dashboard/hr/requests' && window.location.search.includes('view=all');
+      } else if (href.includes('?view=my')) {
+        return pathname === '/dashboard/hr/requests' && window.location.search.includes('view=my');
+      }
+      return pathname === '/dashboard/hr/requests';
+    }
+
     // Nếu là project item, check xem pathname có bắt đầu với href không
     if (href.includes('/dashboard/projects/') && href !== '/dashboard/projects') {
       const projectIdMatch = href.match(/\/dashboard\/projects\/(\d+)/);
@@ -87,7 +108,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse
         return pathname.startsWith(projectBasePath);
       }
     }
-    
+
     return false;
   };
   

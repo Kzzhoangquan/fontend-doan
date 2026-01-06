@@ -1,0 +1,89 @@
+{
+  "title": "Permission Management",
+  "roles": {
+    "title": "Roles",
+    "addRole": "Add Role",
+    "editRole": "Edit Role",
+    "deleteRole": "Delete Role",
+    "roleName": "Role Name",
+    "roleCode": "Role Code",
+    "description": "Description",
+    "permissions": "Permissions",
+    "assignPermissions": "Assign Permissions",
+    "removePermissions": "Remove Permissions",
+    "createSuccess": "Role created successfully",
+    "updateSuccess": "Role updated successfully",
+    "deleteSuccess": "Role deleted successfully",
+    "deleteConfirm": "Are you sure you want to delete role \"{{name}}\"?",
+    "loadError": "Failed to load roles"
+  },
+  "permissions": {
+    "title": "Permissions",
+    "permissionName": "Permission Name",
+    "permissionCode": "Permission Code",
+    "resource": "Resource",
+    "action": "Action",
+    "description": "Description",
+    "assignToRole": "Assign to Role",
+    "assignToUser": "Assign to User",
+    "removeFromRole": "Remove from Role",
+    "removeFromUser": "Remove from User",
+    "createSuccess": "Permission created successfully",
+    "updateSuccess": "Permission updated successfully",
+    "deleteSuccess": "Permission deleted successfully",
+    "assignSuccess": "Permission assigned successfully",
+    "removeSuccess": "Permission removed successfully",
+    "loadError": "Failed to load permissions"
+  },
+  "access": {
+    "title": "Access Control",
+    "checking": "Checking access...",
+    "denied": "Access Denied",
+    "deniedMessage": "You don't have permission to access this resource.",
+    "requiredRole": "Required Role",
+    "requiredRoles": "Required Roles",
+    "requiredPermission": "Required Permission",
+    "requiredPermissions": "Required Permissions",
+    "contactAdmin": "Please contact administrator for access."
+  },
+  "projectRoles": {
+    "title": "Project Roles",
+    "addRole": "Add Project Role",
+    "editRole": "Edit Project Role",
+    "roleName": "Role Name",
+    "permissions": "Permissions",
+    "assignPermission": "Assign Permission",
+    "removePermission": "Remove Permission",
+    "bulkAssign": "Bulk Assign Permissions",
+    "createSuccess": "Project role created successfully",
+    "updateSuccess": "Project role updated successfully",
+    "deleteSuccess": "Project role deleted successfully",
+    "assignSuccess": "Permission assigned successfully",
+    "removeSuccess": "Permission removed successfully",
+    "loadError": "Failed to load project roles"
+  },
+  "userRoles": {
+    "title": "User Roles",
+    "assignRole": "Assign Role",
+    "removeRole": "Remove Role",
+    "currentRoles": "Current Roles",
+    "availableRoles": "Available Roles",
+    "assignSuccess": "Role assigned successfully",
+    "removeSuccess": "Role removed successfully",
+    "loadError": "Failed to load user roles"
+  },
+  "messages": {
+    "noPermission": "You don't have permission to perform this action",
+    "insufficientPermissions": "Insufficient permissions",
+    "permissionRequired": "Permission required: {{permission}}",
+    "roleRequired": "Role required: {{role}}",
+    "contactAdmin": "Please contact administrator if you need access"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "revoked": "Revoked"
+  }
+}
+

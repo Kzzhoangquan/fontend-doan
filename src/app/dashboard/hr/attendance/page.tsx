@@ -2,9 +2,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { notification } from 'antd';
 import { Calendar, Search, Plus, Edit, Trash2, Eye, Loader2, Clock, User, BarChart3, TrendingUp, X, CheckCircle, Camera, MapPin, Smartphone, Shield } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { attendanceService, Attendance, CreateAttendanceDto, UpdateAttendanceDto } from '@/lib/api/services/attendance.service';
 import { employeeService, Employee } from '@/lib/api/services/employee.service';
 import { attendanceVerificationService, TodayStatus } from '@/lib/api/services/attendance-verification.service';
@@ -13,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { UserRole } from '@/lib/constants/roles';
 
 export default function AttendancePage() {
+  const searchParams = useSearchParams();
   const { hasRole, user } = useAuth();
   const [api, contextHolder] = notification.useNotification();
 
@@ -73,6 +75,7 @@ export default function AttendancePage() {
   });
   const [allAttendances, setAllAttendances] = useState<Attendance[]>([]);
   const [statsLoading, setStatsLoading] = useState(false);
+  const [currentWeekAttendances, setCurrentWeekAttendances] = useState<Attendance[]>([]);
 
   // Today status state (removed verification modal state)
   const [todayStatus, setTodayStatus] = useState<TodayStatus | null>(null);
@@ -84,6 +87,12 @@ export default function AttendancePage() {
   // Check if user is employee (can only see their own attendance)
   const isEmployee = hasRole(UserRole.EMPLOYEE) && !hasRole(UserRole.MANAGER) && !hasRole(UserRole.SUPER_ADMIN);
   const canManage = hasRole(UserRole.MANAGER) || hasRole(UserRole.SUPER_ADMIN);
+  
+  // Determine view mode from query param: 'all' (from HR menu) or 'my' (from Employee menu)
+  const viewModeParam = searchParams.get('view');
+  // If view param is explicitly set, use it; otherwise default based on query param presence
+  const isViewAll = viewModeParam === 'all';
+  const isViewMy = viewModeParam === 'my';
 
   // Set client-side only values after mount to avoid hydration mismatch
   useEffect(() => {
@@ -132,30 +141,36 @@ export default function AttendancePage() {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [page, search, filterEmployeeId, filterStartDate, filterEndDate, filterStatus]);
+  }, [page, search, filterEmployeeId, filterStartDate, filterEndDate, filterStatus, isViewMy]);
 
   // Fetch all attendances for statistics - update when filters change
   useEffect(() => {
     fetchAllAttendancesForStats();
-  }, [filterStartDate, filterEndDate, filterEmployeeId, isEmployee, user?.id]);
+  }, [filterStartDate, filterEndDate, filterEmployeeId, isViewMy, user?.id]);
 
-  // Fetch today status on mount
+  // Fetch current week attendances for charts - update when employee filter changes
   useEffect(() => {
-    if (isEmployee) {
+    fetchCurrentWeekAttendances();
+  }, [filterEmployeeId, isViewMy, user?.id]);
+
+  // Fetch today status on mount (only for "my" view)
+  useEffect(() => {
+    if (isViewMy && user?.id) {
       fetchTodayStatus();
     }
-  }, [isEmployee, user?.id]);
+  }, [isViewMy, user?.id]);
 
   const fetchAllAttendancesForStats = async () => {
     setStatsLoading(true);
     try {
       const params: any = { pageSize: 1000 };
-      // Use filterEmployeeId if set, otherwise use user.id for employees
+      // Use filterEmployeeId if set, otherwise use user.id for "my" view
       if (filterEmployeeId) {
         params.employeeId = filterEmployeeId;
-      } else if (isEmployee && user?.id) {
+      } else if (isViewMy && user?.id) {
         params.employeeId = user.id;
       }
+      // If viewAll, don't set employeeId (show all employees)
       // Always use filter dates (defaults to current month start/end)
       if (filterStartDate) {
         params.startDate = filterStartDate;
@@ -172,12 +187,61 @@ export default function AttendancePage() {
     }
   };
 
-  useEffect(() => {
-    if (isEmployee && user?.id) {
-      setFilterEmployeeId(user.id);
+  // Fetch current week attendance data for charts
+  const fetchCurrentWeekAttendances = async () => {
+    try {
+      const params: any = { pageSize: 1000 };
+
+      // Get current week date range
+      const now = new Date();
+      const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+
+      // Calculate Monday of current week
+      const monday = new Date(now);
+      const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+      monday.setDate(now.getDate() + diffToMonday);
+
+      // Calculate Sunday of current week
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+
+      // Format dates as YYYY-MM-DD
+      const formatDateLocal = (date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
+      params.startDate = formatDateLocal(monday);
+      params.endDate = formatDateLocal(sunday);
+
+      // Use filterEmployeeId if set, otherwise use user.id for "my" view
+      if (filterEmployeeId) {
+        params.employeeId = filterEmployeeId;
+      } else if (isViewMy && user?.id) {
+        params.employeeId = user.id;
+      }
+
+      const data = await attendanceService.getAll(params);
+      setCurrentWeekAttendances(data.data);
+    } catch (err: any) {
+      console.error('Error fetching current week attendances:', err);
     }
-    fetchEmployees();
-  }, [isEmployee, user]);
+  };
+
+  useEffect(() => {
+    // If viewing "my" (employee view), filter by current user
+    if (isViewMy && user?.id) {
+      setFilterEmployeeId(user.id);
+    } else if (isViewAll) {
+      // If viewing "all" (HR view), don't set filter by default (show all)
+      setFilterEmployeeId(undefined);
+    }
+    if (canManage) {
+      fetchEmployees();
+    }
+  }, [isViewMy, isViewAll, user?.id, canManage]);
 
   // Set default date only on client side (separate effect to avoid hydration issues)
   useEffect(() => {
@@ -227,30 +291,16 @@ export default function AttendancePage() {
       if (filterEndDate) {
         params.endDate = filterEndDate;
       }
+      if (filterStatus) {
+        params.status = filterStatus;
+      }
 
       const data = await attendanceService.getAll(params);
-      
-      // Filter by status on frontend
-      let filteredData = data.data;
-      if (filterStatus) {
-        filteredData = data.data.filter((att: Attendance) => {
-          if (filterStatus === 'late') {
-            // Đi muộn: có late_minutes > 0
-            return att.late_minutes && att.late_minutes > 0;
-          } else if (filterStatus === 'valid') {
-            // Hợp lệ: có check_in, check_out và is_verified
-            return att.check_in && att.check_out && (att as any).is_verified;
-          } else if (filterStatus === 'missing') {
-            // Không chấm công: thiếu check_in hoặc check_out
-            return !att.check_in || !att.check_out;
-          }
-          return true;
-        });
-      }
-      
-      setAttendances(filteredData);
-      setTotal(filteredData.length);
-      setTotalPages(Math.ceil(filteredData.length / pageSize));
+
+      // Use data directly from API (already filtered and paginated)
+      setAttendances(data.data);
+      setTotal(data.total);
+      setTotalPages(data.totalPages);
     } catch (err: any) {
       console.error('Error fetching attendances:', err);
       setError(err.response?.data?.message || 'Không thể tải danh sách chấm công');
@@ -451,25 +501,25 @@ export default function AttendancePage() {
     let totalVerified = 0;
     let totalUnverified = 0;
 
-    // Use filtered attendances instead of allAttendances
-    attendances.forEach(att => {
+    // Use filtered attendances for overall statistics (respecting date filters)
+    allAttendances.forEach(att => {
       const date = att.date;
       if (!dailyStats[date]) {
         dailyStats[date] = { total: 0, late: 0, hours: 0, early: 0, verified: 0 };
       }
       dailyStats[date].total++;
       totalRecords++;
-      
+
       if (att.late_minutes && att.late_minutes > 0) {
         dailyStats[date].late++;
         totalLate++;
       }
-      
+
       if (att.early_leave_minutes && att.early_leave_minutes > 0) {
         dailyStats[date].early++;
         totalEarly++;
       }
-      
+
       if (att.work_hours) {
         const hours = Number(att.work_hours);
         dailyStats[date].hours += hours;
@@ -485,18 +535,106 @@ export default function AttendancePage() {
       }
     });
 
-    const dailyData = Object.entries(dailyStats)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .slice(-7) // Last 7 days
-      .map(([date, stats]) => ({
-        date: isClient ? new Date(date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : date,
+    // Calculate chart data using current week attendances
+    const getCurrentWeekDates = () => {
+      const now = new Date();
+      const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+
+      // Calculate Monday of current week (Monday = 1, Sunday = 0)
+      const monday = new Date(now);
+      const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay; // If Sunday (0), go back 6 days, else go to Monday
+      monday.setDate(now.getDate() + diffToMonday);
+
+      const weekDates = [];
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(monday);
+        date.setDate(monday.getDate() + i);
+        weekDates.push(date);
+      }
+      return weekDates;
+    };
+
+    // Create chart data from current week attendances
+    const weekAttendancesStats: Record<string, { total: number; late: number; hours: number; early: number; verified: number }> = {};
+    currentWeekAttendances.forEach(att => {
+      const date = att.date;
+      if (!weekAttendancesStats[date]) {
+        weekAttendancesStats[date] = { total: 0, late: 0, hours: 0, early: 0, verified: 0 };
+      }
+      weekAttendancesStats[date].total++;
+
+      if (att.late_minutes && att.late_minutes > 0) {
+        weekAttendancesStats[date].late++;
+      }
+
+      if (att.early_leave_minutes && att.early_leave_minutes > 0) {
+        weekAttendancesStats[date].early++;
+      }
+
+      if (att.work_hours) {
+        const hours = Number(att.work_hours);
+        weekAttendancesStats[date].hours += hours;
+      }
+
+      // Check verification status
+      if ((att as any).is_verified) {
+        weekAttendancesStats[date].verified++;
+      }
+    });
+
+    // Create data for current week (7 days) for charts
+    const currentWeekDates = getCurrentWeekDates();
+    const dailyData = currentWeekDates.map(date => {
+      const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+      const stats = weekAttendancesStats[dateStr] || { total: 0, late: 0, hours: 0, early: 0, verified: 0 };
+
+      return {
+        date: isClient ? date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : dateStr,
         'Số ca': stats.total,
         'Đi muộn': stats.late,
         'Giờ làm': Number(stats.hours.toFixed(2)),
-      }));
+      };
+    });
+
+    // Calculate pie chart data for attendance status distribution
+    const totalWeekRecords = currentWeekAttendances.length;
+    const lateCount = currentWeekAttendances.filter(att => att.late_minutes && att.late_minutes > 0).length;
+    const onTimeCount = currentWeekAttendances.filter(att =>
+      (!att.late_minutes || att.late_minutes === 0) &&
+      (!att.early_leave_minutes || att.early_leave_minutes === 0) &&
+      att.check_in && att.check_out
+    ).length;
+
+    // Missing count: records that are expected but not present
+    // For simplicity, we'll show records that don't have check-in as missing
+    const missingCount = currentWeekAttendances.filter(att => !att.check_in).length;
+
+    const totalForPercentage = lateCount + onTimeCount + missingCount;
+
+    const pieData = [
+      {
+        name: 'Đi muộn',
+        value: lateCount,
+        percentage: totalForPercentage > 0 ? Number(((lateCount / totalForPercentage) * 100).toFixed(1)) : 0,
+        color: '#ef4444'
+      },
+      {
+        name: 'Đúng giờ',
+        value: onTimeCount,
+        percentage: totalForPercentage > 0 ? Number(((onTimeCount / totalForPercentage) * 100).toFixed(1)) : 0,
+        color: '#10b981'
+      },
+      {
+        name: 'Không điểm danh',
+        value: missingCount,
+        percentage: totalForPercentage > 0 ? Number(((missingCount / totalForPercentage) * 100).toFixed(1)) : 0,
+        color: '#6b7280'
+      }
+    ];
 
     return {
       dailyData,
+      pieData,
       totalHours: Number(totalHours.toFixed(2)),
       totalLate,
       totalEarly,
@@ -640,18 +778,27 @@ export default function AttendancePage() {
           <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center gap-2 mb-4">
               <BarChart3 className="w-5 h-5 text-blue-600" />
-              <h3 className="text-lg font-semibold text-gray-900">Thống kê 7 ngày gần nhất</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Tỷ lệ chấm công tuần này</h3>
             </div>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={attendanceStats.dailyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
+              <PieChart>
+                <Pie
+                  data={attendanceStats.pieData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, value, payload }) => `${name}: ${payload.percentage}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {attendanceStats.pieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value, name) => [`${value} ca (${attendanceStats.pieData.find(d => d.name === name)?.percentage}%)`, name]} />
                 <Legend />
-                <Bar dataKey="Số ca" fill="#3b82f6" />
-                <Bar dataKey="Đi muộn" fill="#ef4444" />
-              </BarChart>
+              </PieChart>
             </ResponsiveContainer>
           </div>
 
@@ -796,7 +943,7 @@ export default function AttendancePage() {
         {/* Filters - Only show in table view */}
         {viewMode === 'table' && (
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          {canManage && (
+          {canManage && isViewAll && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Nhân viên</label>
               <select
@@ -871,7 +1018,9 @@ export default function AttendancePage() {
       {/* Calendar View */}
       {viewMode === 'calendar' && (
         <AttendanceCalendar
-          employeeId={isEmployee ? user?.id : filterEmployeeId}
+          employeeId={isViewMy ? user?.id : filterEmployeeId}
+          startDate={filterStartDate}
+          endDate={filterEndDate}
         />
       )}
 
@@ -972,18 +1121,11 @@ export default function AttendancePage() {
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="space-y-1">
-                          {att.late_minutes && att.late_minutes > 0 && (
-                            <p className="text-xs text-red-600">Muộn: {att.late_minutes} phút</p>
-                          )}
-                          {att.early_leave_minutes && att.early_leave_minutes > 0 && (
-                            <p className="text-xs text-orange-600">Sớm: {att.early_leave_minutes} phút</p>
-                          )}
-                          {(!att.late_minutes || att.late_minutes === 0) && 
-                           (!att.early_leave_minutes || att.early_leave_minutes === 0) && (
-                            <p className="text-xs text-green-600">Đúng giờ</p>
-                          )}
-                        </div>
+                        {att.late_minutes && att.late_minutes > 0 ? (
+                          <p className="text-xs text-red-600">Muộn: {att.late_minutes} phút</p>
+                        ) : (
+                          <p className="text-xs text-green-600">Đúng giờ</p>
+                        )}
                       </td>
                       {canManage && (
                         <td className="px-6 py-4">
@@ -1033,6 +1175,7 @@ export default function AttendancePage() {
               <div className="flex items-center justify-between">
                 <p className="text-sm text-gray-600">
                   Hiển thị <span className="font-semibold">{attendances.length}</span> / {total} bản ghi
+                  (Trang {page} / {totalPages})
                 </p>
                 <div className="flex items-center gap-2">
                   <button

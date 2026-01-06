@@ -363,7 +363,7 @@ export default function DepartmentsPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{t('departments.title')}</h1>
-              <p className="text-sm text-gray-500">{t('common.total')}: {total} {t('departments.departmentName').toLowerCase()}</p>
+              <p className="text-sm text-gray-500">{'Tổng'}: {total} {t('departments.departmentName').toLowerCase()}</p>
             </div>
           </div>
           {canManage && (
@@ -449,14 +449,14 @@ export default function DepartmentsPage() {
                           {t('departments.departmentName')}
                         </th>
                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
-                          {t('common.description')}
+                          {'Mô tả'}
                         </th>
                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">
                           {t('departments.parentDepartment')}
                         </th>
                         {canManage && (
                           <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase">
-                            {t('common.actions')}
+                            {'Thao tác'}
                           </th>
                         )}
                       </tr>

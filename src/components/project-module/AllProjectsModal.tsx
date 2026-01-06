@@ -119,7 +119,7 @@ export const AllProjectsModal: React.FC<AllProjectsModalProps> = ({
       onCancel={onClose}
       footer={null}
       width={1000}
-      bodyStyle={{ padding: 0 }}
+      styles={{ body: { padding: 0 } }}
     >
       {/* Search Bar */}
       <div className="p-4 border-b border-gray-200 bg-gray-50">

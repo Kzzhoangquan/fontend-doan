@@ -7,6 +7,8 @@ import { attendanceService } from '@/lib/api/services/attendance.service';
 
 interface AttendanceCalendarProps {
   employeeId?: number;
+  startDate?: string;
+  endDate?: string;
   onDateClick?: (date: string, attendance: Attendance | null) => void;
 }
 
@@ -16,35 +18,59 @@ interface DayData {
   status: 'valid' | 'late' | 'early' | 'missing' | 'none';
 }
 
-export default function AttendanceCalendar({ employeeId, onDateClick }: AttendanceCalendarProps) {
-  const [currentDate, setCurrentDate] = useState(new Date());
+export default function AttendanceCalendar({ employeeId, startDate, endDate, onDateClick }: AttendanceCalendarProps) {
+  const [currentDate, setCurrentDate] = useState(() => {
+    if (startDate) {
+      return new Date(startDate);
+    }
+    return new Date();
+  });
   const [attendances, setAttendances] = useState<Attendance[]>([]);
+
+  // Update currentDate when startDate changes
+  useEffect(() => {
+    if (startDate) {
+      setCurrentDate(new Date(startDate));
+    }
+  }, [startDate]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedAttendance, setSelectedAttendance] = useState<Attendance | null>(null);
 
-  // Get first and last day of current month
-  const monthStart = useMemo(() => {
-    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-    return date;
-  }, [currentDate]);
+  // Get date range - use props if provided, otherwise use current month
+  const { start: calendarStart, end: calendarEnd } = useMemo(() => {
+    if (startDate && endDate) {
+      return {
+        start: new Date(startDate),
+        end: new Date(endDate)
+      };
+    } else {
+      // Default to current month
+      const start = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+      const end = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+      return { start, end };
+    }
+  }, [startDate, endDate, currentDate]);
 
-  const monthEnd = useMemo(() => {
-    const date = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-    return date;
-  }, [currentDate]);
-
-  // Fetch attendances for current month
+  // Fetch attendances for date range
   useEffect(() => {
     const fetchAttendances = async () => {
       setLoading(true);
       try {
-        const startDate = monthStart.toISOString().split('T')[0];
-        const endDate = monthEnd.toISOString().split('T')[0];
+        // Use local date format to avoid timezone issues
+        const formatLocalDate = (date: Date): string => {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        };
+
+        const startDateStr = formatLocalDate(calendarStart);
+        const endDateStr = formatLocalDate(calendarEnd);
         
         const params: any = {
-          startDate,
-          endDate,
+          startDate: startDateStr,
+          endDate: endDateStr,
           pageSize: 1000,
         };
         
@@ -62,12 +88,12 @@ export default function AttendanceCalendar({ employeeId, onDateClick }: Attendan
     };
 
     fetchAttendances();
-  }, [currentDate, employeeId, monthStart, monthEnd]);
+  }, [calendarStart, calendarEnd, employeeId]);
 
   // Generate calendar days
   const calendarDays = useMemo(() => {
     const days: DayData[] = [];
-    const startDate = new Date(monthStart);
+    const startDate = new Date(calendarStart);
     
     // Start from Monday of the week containing the first day
     const dayOfWeek = startDate.getDay();
@@ -113,7 +139,7 @@ export default function AttendanceCalendar({ employeeId, onDateClick }: Attendan
     }
 
     return days;
-  }, [attendances, monthStart, currentDate]);
+  }, [attendances, calendarStart, currentDate]);
 
   const handleDateClick = (dayData: DayData) => {
     if (dayData.date.getMonth() !== currentDate.getMonth()) return;
