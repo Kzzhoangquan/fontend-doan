@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { notification } from 'antd';
 import { CheckSquare, Search, Plus, Edit, Trash2, Eye, Loader2, X, CheckCircle, XCircle, Clock, BarChart3, PieChart, LucideIcon } from 'lucide-react';
 import { PieChart as RechartsPieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -42,6 +43,7 @@ const LATE_EARLY_TYPE_LABELS: Record<LateEarlyType, string> = {
 };
 
 export default function RequestsPage() {
+  const searchParams = useSearchParams();
   const { hasRole, user } = useAuth();
   const [api, contextHolder] = notification.useNotification();
 
@@ -95,6 +97,12 @@ export default function RequestsPage() {
   // Check if user is employee (can only see their own requests)
   const isEmployee = hasRole(UserRole.EMPLOYEE) && !hasRole(UserRole.MANAGER) && !hasRole(UserRole.SUPER_ADMIN);
   const canManage = hasRole(UserRole.MANAGER) || hasRole(UserRole.SUPER_ADMIN);
+  
+  // Determine view mode from query param: 'all' (from HR menu) or 'my' (from Employee menu)
+  const viewModeParam = searchParams.get('view');
+  // If view param is explicitly set, use it; otherwise default based on query param presence
+  const isViewAll = viewModeParam === 'all';
+  const isViewMy = viewModeParam === 'my';
 
   // Fetch requests với debounce
   useEffect(() => {
@@ -103,7 +111,7 @@ export default function RequestsPage() {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [page, search, filterStatus, filterRequestType, filterStartDate, filterEndDate]);
+  }, [page, search, filterStatus, filterRequestType, filterStartDate, filterEndDate, isViewMy]);
 
   useEffect(() => {
     // Set default dates only on client side
@@ -136,15 +144,17 @@ export default function RequestsPage() {
   // Fetch all requests for statistics
   useEffect(() => {
     fetchAllRequestsForStats();
-  }, []);
+  }, [isViewMy, user?.id]);
 
   const fetchAllRequestsForStats = async () => {
     setStatsLoading(true);
     try {
       const params: { pageSize: number; employeeId?: number } = { pageSize: 1000 };
-      if (isEmployee && user?.id) {
+      // Only filter by employeeId if viewing "my" requests
+      if (isViewMy && user?.id) {
         params.employeeId = user.id;
       }
+      // If viewAll, don't set employeeId (show all employees' requests)
       const data = await hrRequestService.getAll(params);
       setAllRequests(data);
     } catch (err) {
@@ -164,9 +174,11 @@ export default function RequestsPage() {
         pageSize,
       };
 
-      if (isEmployee && user?.id) {
+      // Only filter by employeeId if viewing "my" requests
+      if (isViewMy && user?.id) {
         params.employeeId = user.id;
       }
+      // If viewAll, don't set employeeId (show all employees' requests)
       if (filterStatus) {
         params.status = filterStatus;
       }

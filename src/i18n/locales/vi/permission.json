@@ -1,0 +1,89 @@
+{
+  "title": "Quản lý phân quyền",
+  "roles": {
+    "title": "Vai trò",
+    "addRole": "Thêm vai trò",
+    "editRole": "Chỉnh sửa vai trò",
+    "deleteRole": "Xóa vai trò",
+    "roleName": "Tên vai trò",
+    "roleCode": "Mã vai trò",
+    "description": "Mô tả",
+    "permissions": "Quyền",
+    "assignPermissions": "Gán quyền",
+    "removePermissions": "Gỡ quyền",
+    "createSuccess": "Tạo vai trò thành công",
+    "updateSuccess": "Cập nhật vai trò thành công",
+    "deleteSuccess": "Xóa vai trò thành công",
+    "deleteConfirm": "Bạn có chắc chắn muốn xóa vai trò \"{{name}}\"?",
+    "loadError": "Không thể tải danh sách vai trò"
+  },
+  "permissions": {
+    "title": "Quyền",
+    "permissionName": "Tên quyền",
+    "permissionCode": "Mã quyền",
+    "resource": "Tài nguyên",
+    "action": "Hành động",
+    "description": "Mô tả",
+    "assignToRole": "Gán cho vai trò",
+    "assignToUser": "Gán cho người dùng",
+    "removeFromRole": "Gỡ khỏi vai trò",
+    "removeFromUser": "Gỡ khỏi người dùng",
+    "createSuccess": "Tạo quyền thành công",
+    "updateSuccess": "Cập nhật quyền thành công",
+    "deleteSuccess": "Xóa quyền thành công",
+    "assignSuccess": "Gán quyền thành công",
+    "removeSuccess": "Gỡ quyền thành công",
+    "loadError": "Không thể tải danh sách quyền"
+  },
+  "access": {
+    "title": "Kiểm soát truy cập",
+    "checking": "Đang kiểm tra quyền truy cập...",
+    "denied": "Truy cập bị từ chối",
+    "deniedMessage": "Bạn không có quyền truy cập tài nguyên này.",
+    "requiredRole": "Vai trò yêu cầu",
+    "requiredRoles": "Các vai trò yêu cầu",
+    "requiredPermission": "Quyền yêu cầu",
+    "requiredPermissions": "Các quyền yêu cầu",
+    "contactAdmin": "Vui lòng liên hệ quản trị viên để được cấp quyền."
+  },
+  "projectRoles": {
+    "title": "Vai trò dự án",
+    "addRole": "Thêm vai trò dự án",
+    "editRole": "Chỉnh sửa vai trò dự án",
+    "roleName": "Tên vai trò",
+    "permissions": "Quyền",
+    "assignPermission": "Gán quyền",
+    "removePermission": "Gỡ quyền",
+    "bulkAssign": "Gán quyền hàng loạt",
+    "createSuccess": "Tạo vai trò dự án thành công",
+    "updateSuccess": "Cập nhật vai trò dự án thành công",
+    "deleteSuccess": "Xóa vai trò dự án thành công",
+    "assignSuccess": "Gán quyền thành công",
+    "removeSuccess": "Gỡ quyền thành công",
+    "loadError": "Không thể tải danh sách vai trò dự án"
+  },
+  "userRoles": {
+    "title": "Vai trò người dùng",
+    "assignRole": "Gán vai trò",
+    "removeRole": "Gỡ vai trò",
+    "currentRoles": "Vai trò hiện tại",
+    "availableRoles": "Vai trò có sẵn",
+    "assignSuccess": "Gán vai trò thành công",
+    "removeSuccess": "Gỡ vai trò thành công",
+    "loadError": "Không thể tải vai trò người dùng"
+  },
+  "messages": {
+    "noPermission": "Bạn không có quyền thực hiện hành động này",
+    "insufficientPermissions": "Không đủ quyền",
+    "permissionRequired": "Yêu cầu quyền: {{permission}}",
+    "roleRequired": "Yêu cầu vai trò: {{role}}",
+    "contactAdmin": "Vui lòng liên hệ quản trị viên nếu bạn cần quyền truy cập"
+  },
+  "status": {
+    "active": "Hoạt động",
+    "inactive": "Không hoạt động",
+    "pending": "Chờ duyệt",
+    "revoked": "Đã thu hồi"
+  }
+}
+

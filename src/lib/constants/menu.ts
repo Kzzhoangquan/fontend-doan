@@ -94,14 +94,14 @@ export const MENU_ITEMS: MenuItem[] = [
       {
         label: 'Công ca',
         icon: Calendar,
-        href: ROUTES.DASHBOARD.HR.ATTENDANCE,
-        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN, UserRole.EMPLOYEE],
+        href: `${ROUTES.DASHBOARD.HR.ATTENDANCE}?view=all`,
+        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN, UserRole.EMPLOYEE], // Temporarily allow EMPLOYEE for testing
       },
       {
         label: 'Yêu cầu',
         icon: CheckSquare,
-        href: ROUTES.DASHBOARD.HR.REQUESTS,
-        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN, UserRole.EMPLOYEE],
+        href: `${ROUTES.DASHBOARD.HR.REQUESTS}?view=all`,
+        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN],
       },
       {
         label: 'Cài đặt Lương',
@@ -121,13 +121,13 @@ export const MENU_ITEMS: MenuItem[] = [
   {
     label: 'Chấm công',
     icon: Calendar,
-    href: ROUTES.DASHBOARD.HR.ATTENDANCE,
+    href: `${ROUTES.DASHBOARD.HR.ATTENDANCE}?view=my`,
     roles: [UserRole.EMPLOYEE],
   },
   {
     label: 'Yêu cầu nghỉ phép',
     icon: CheckSquare,
-    href: ROUTES.DASHBOARD.HR.REQUESTS,
+    href: `${ROUTES.DASHBOARD.HR.REQUESTS}?view=my`,
     roles: [UserRole.EMPLOYEE],
   },
   {
