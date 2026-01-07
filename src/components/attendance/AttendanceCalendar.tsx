@@ -10,6 +10,7 @@ interface AttendanceCalendarProps {
   startDate?: string;
   endDate?: string;
   onDateClick?: (date: string, attendance: Attendance | null) => void;
+  onMonthChange?: (startDate: string, endDate: string) => void;
 }
 
 interface DayData {
@@ -18,7 +19,7 @@ interface DayData {
   status: 'valid' | 'late' | 'early' | 'missing' | 'none';
 }
 
-export default function AttendanceCalendar({ employeeId, startDate, endDate, onDateClick }: AttendanceCalendarProps) {
+export default function AttendanceCalendar({ employeeId, startDate, endDate, onDateClick, onMonthChange }: AttendanceCalendarProps) {
   const [currentDate, setCurrentDate] = useState(() => {
     if (startDate) {
       return new Date(startDate);
@@ -154,11 +155,39 @@ export default function AttendanceCalendar({ employeeId, startDate, endDate, onD
   };
 
   const previousMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+    setCurrentDate(newDate);
+
+    // Notify parent component of month change
+    if (onMonthChange) {
+      const start = new Date(newDate.getFullYear(), newDate.getMonth(), 1);
+      const end = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0);
+      const formatLocalDate = (date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+      onMonthChange(formatLocalDate(start), formatLocalDate(end));
+    }
   };
 
   const nextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+    setCurrentDate(newDate);
+
+    // Notify parent component of month change
+    if (onMonthChange) {
+      const start = new Date(newDate.getFullYear(), newDate.getMonth(), 1);
+      const end = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0);
+      const formatLocalDate = (date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+      onMonthChange(formatLocalDate(start), formatLocalDate(end));
+    }
   };
 
   const monthNames = [
