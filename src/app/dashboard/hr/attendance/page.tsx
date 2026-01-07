@@ -1021,6 +1021,10 @@ export default function AttendancePage() {
           employeeId={isViewMy ? user?.id : filterEmployeeId}
           startDate={filterStartDate}
           endDate={filterEndDate}
+          onMonthChange={(start, end) => {
+            setFilterStartDate(start);
+            setFilterEndDate(end);
+          }}
         />
       )}
 

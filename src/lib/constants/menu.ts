@@ -95,7 +95,7 @@ export const MENU_ITEMS: MenuItem[] = [
         label: 'Công ca',
         icon: Calendar,
         href: `${ROUTES.DASHBOARD.HR.ATTENDANCE}?view=all`,
-        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN, UserRole.EMPLOYEE], // Temporarily allow EMPLOYEE for testing
+        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN, UserRole.EMPLOYEE, UserRole.ACCOUNTANT], // Temporarily allow EMPLOYEE for testing
       },
       {
         label: 'Yêu cầu',
@@ -113,7 +113,7 @@ export const MENU_ITEMS: MenuItem[] = [
         label: 'Quản lý Lương',
         icon: DollarSign,
         href: '/dashboard/hr/salary',
-        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN],
+        roles: [UserRole.MANAGER, UserRole.SUPER_ADMIN,UserRole.ACCOUNTANT],
       },
     ],
   },
@@ -143,26 +143,26 @@ export const MENU_ITEMS: MenuItem[] = [
     roles: [UserRole.EMPLOYEE, UserRole.DEPARTMENT_HEAD, UserRole.SUPER_ADMIN],
     // Không cần children ở đây, sẽ được inject động trong Sidebar component
   },
-  {
-    label: 'Kế toán',
-    icon: DollarSign,
-    href: '/dashboard/accounting',
-    roles: [UserRole.ACCOUNTANT, UserRole.SUPER_ADMIN],
-    children: [
-      {
-        label: 'Quản lý lương',
-        icon: DollarSign,
-        href: ROUTES.DASHBOARD.ACCOUNTING.SALARY,
-        roles: [UserRole.ACCOUNTANT, UserRole.SUPER_ADMIN],
-      },
-      {
-        label: 'Báo cáo',
-        icon: FileText,
-        href: ROUTES.DASHBOARD.ACCOUNTING.REPORTS,
-        roles: [UserRole.ACCOUNTANT, UserRole.SUPER_ADMIN],
-      },
-    ],
-  },
+  // {
+  //   label: 'Kế toán',
+  //   icon: DollarSign,
+  //   href: '/dashboard/accounting',
+  //   roles: [UserRole.ACCOUNTANT, UserRole.SUPER_ADMIN],
+  //   children: [
+  //     {
+  //       label: 'Quản lý lương',
+  //       icon: DollarSign,
+  //       href: ROUTES.DASHBOARD.ACCOUNTING.SALARY,
+  //       roles: [UserRole.ACCOUNTANT, UserRole.SUPER_ADMIN],
+  //     },
+  //     {
+  //       label: 'Báo cáo',
+  //       icon: FileText,
+  //       href: ROUTES.DASHBOARD.ACCOUNTING.REPORTS,
+  //       roles: [UserRole.ACCOUNTANT, UserRole.SUPER_ADMIN],
+  //     },
+  //   ],
+  // },
   {
     label: 'Tạo yêu cầu cấp tài sản',
     icon: FolderKanban,
@@ -195,12 +195,12 @@ export const MENU_ITEMS: MenuItem[] = [
           UserRole.SUPER_ADMIN,
         ],
       },
-      {
-        label: 'Phân quyền',
-        icon: Settings,
-        href: ROUTES.DASHBOARD.SETTINGS.PERMISSIONS,
-        roles: [UserRole.CONTENT_ADMIN],
-      },
+      // {
+      //   label: 'Phân quyền',
+      //   icon: Settings,
+      //   href: ROUTES.DASHBOARD.SETTINGS.PERMISSIONS,
+      //   roles: [UserRole.CONTENT_ADMIN],
+      // },
     ],
   },
 ];
